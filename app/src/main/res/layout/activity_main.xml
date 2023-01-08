@@ -9,10 +9,220 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
+        android:text="Small screen sizes not supported"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="invisible"
+            tools:context=".MainActivity">
+
+
+            <View
+                android:id="@+id/bottomNavBar"
+                android:layout_width="0dp"
+                android:layout_height="100dp"
+                android:background="@android:color/black"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="1.0"
+                app:layout_constraintStart_toStartOf="parent" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_right_seat_heater"
+                android:layout_width="wrap_content"
+                android:layout_height="100dp"
+                android:padding="30dp"
+                app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
+                app:layout_constraintEnd_toStartOf="@+id/iv_bottom_nav_bar_defrost"
+                app:srcCompat="@drawable/ic_seat_heat_right" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_settings"
+                android:layout_width="0dp"
+                android:layout_height="100dp"
+                android:onClick="toggleSettings"
+                android:padding="30dp"
+                app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
+                app:layout_constraintStart_toStartOf="@+id/bottomNavBar"
+                app:layout_constraintTop_toTopOf="@+id/bottomNavBar"
+                app:srcCompat="@drawable/ic_car" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_music"
+                android:layout_width="0dp"
+                android:layout_height="100dp"
+                android:padding="30dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/iv_bottom_nav_bar_settings"
+                app:layout_constraintTop_toTopOf="@+id/bottomNavBar"
+                app:srcCompat="@drawable/ic_music" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_left_seat_heater"
+                android:layout_width="wrap_content"
+                android:layout_height="100dp"
+                android:padding="30dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/iv_bottom_nav_bar_music"
+                app:layout_constraintTop_toTopOf="@+id/bottomNavBar"
+                app:srcCompat="@drawable/ic_seat_heat_left" />
+
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_fan_setting_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="100dp"
+                android:padding="26dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/bottomNavBar"
+                app:srcCompat="@drawable/ic_fan" />
+
+            <TextView
+                android:id="@+id/tv_bottom_nav_bar_fan_setting"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Auto"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body2"
+                android:textColor="#C1C1C1"
+                android:textSize="20sp"
+                app:layout_constraintBottom_toBottomOf="@+id/iv_bottom_nav_bar_fan_setting_icon"
+                app:layout_constraintEnd_toEndOf="@+id/iv_bottom_nav_bar_fan_setting_icon"
+                app:layout_constraintStart_toStartOf="@+id/iv_bottom_nav_bar_fan_setting_icon" />
+
+            <TextView
+                android:id="@+id/tv_bottom_nav_bar_left_temp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="18.5"
+                android:textAlignment="center"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+                android:textColor="#C1C1C1"
+                android:textSize="34sp"
+                app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
+                app:layout_constraintEnd_toStartOf="@+id/iv_bottom_nav_bar_fan_setting_icon"
+                app:layout_constraintStart_toEndOf="@+id/iv_bottom_nav_bar_left_seat_heater"
+                app:layout_constraintTop_toTopOf="@+id/bottomNavBar" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_left_temp_up"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_marginBottom="8dp"
+                android:padding="15dp"
+                app:layout_constraintBottom_toTopOf="@+id/iv_bottom_nav_bar_left_temp_down"
+                app:layout_constraintEnd_toStartOf="@+id/iv_bottom_nav_bar_fan_setting_icon"
+                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintStart_toEndOf="@+id/iv_bottom_nav_bar_left_seat_heater"
+                app:layout_constraintTop_toTopOf="@id/bottomNavBar"
+                app:srcCompat="@drawable/ic_arrow_up" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_left_temp_down"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_marginTop="8dp"
+                android:padding="15dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/iv_bottom_nav_bar_fan_setting_icon"
+                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintStart_toEndOf="@+id/iv_bottom_nav_bar_left_seat_heater"
+                app:layout_constraintTop_toBottomOf="@+id/iv_bottom_nav_bar_left_temp_up"
+                app:srcCompat="@drawable/ic_arrow_down" />
+
+            <TextView
+                android:id="@+id/tv_bottom_nav_bar_right_temp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="18.5"
+                android:textAlignment="center"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+                android:textColor="#C1C1C1"
+                android:textSize="34sp"
+                app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
+                app:layout_constraintEnd_toStartOf="@+id/iv_bottom_nav_bar_right_seat_heater"
+                app:layout_constraintStart_toEndOf="@+id/iv_bottom_nav_bar_fan_setting_icon"
+                app:layout_constraintTop_toTopOf="@+id/bottomNavBar" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_right_temp_up"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_marginBottom="8dp"
+                android:padding="15dp"
+                app:layout_constraintBottom_toTopOf="@+id/iv_bottom_nav_bar_right_temp_down"
+                app:layout_constraintEnd_toStartOf="@+id/iv_bottom_nav_bar_right_seat_heater"
+                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintStart_toEndOf="@+id/iv_bottom_nav_bar_fan_setting_icon"
+                app:layout_constraintTop_toTopOf="@id/bottomNavBar"
+                app:srcCompat="@drawable/ic_arrow_up" />
+
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_right_temp_down"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_marginTop="8dp"
+                android:padding="15dp"
+                app:layout_constraintBottom_toBottomOf="@id/bottomNavBar"
+                app:layout_constraintEnd_toStartOf="@+id/iv_bottom_nav_bar_right_seat_heater"
+                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintStart_toEndOf="@+id/iv_bottom_nav_bar_fan_setting_icon"
+                app:layout_constraintTop_toBottomOf="@+id/iv_bottom_nav_bar_right_temp_up"
+                app:srcCompat="@drawable/ic_arrow_down" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_defrost"
+                android:layout_width="0dp"
+                android:layout_height="100dp"
+                android:padding="30dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/iv_bottom_nav_bar_vol"
+                app:layout_constraintTop_toTopOf="@+id/bottomNavBar"
+                app:srcCompat="@drawable/ic_defrost_front" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_vol"
+                android:layout_width="0dp"
+                android:layout_height="100dp"
+                android:padding="32dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:srcCompat="@drawable/ic_sound_3" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_vol_up"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="30dp"
+                app:layout_constraintBottom_toTopOf="@+id/iv_bottom_nav_bar_vol_down"
+                app:layout_constraintEnd_toEndOf="@+id/bottomNavBar"
+                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintStart_toStartOf="@+id/iv_bottom_nav_bar_vol"
+                app:layout_constraintTop_toTopOf="@id/bottomNavBar"
+                app:srcCompat="@drawable/ic_arrow_up" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_vol_down"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:paddingTop="30dp"
+                android:paddingBottom="10dp"
+                app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
+                app:layout_constraintEnd_toEndOf="@+id/bottomNavBar"
+                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintStart_toStartOf="@+id/iv_bottom_nav_bar_vol"
+                app:layout_constraintTop_toBottomOf="@+id/iv_bottom_nav_bar_vol_up"
+                app:srcCompat="@drawable/ic_arrow_down" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
