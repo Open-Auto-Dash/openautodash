@@ -8,13 +8,11 @@ import com.openautodash.R;
 public class LocalSettings {
     private static final String TAG = "LocalSettings";
 
-    private final Context context;
     private final SharedPreferences preferences;
     private final SharedPreferences.Editor editor;
 
 
     public LocalSettings(Context context) {
-        this.context = context;
         preferences = context.getSharedPreferences(context.getPackageName(), Context.MODE_PRIVATE);
         editor = preferences.edit();
     }
