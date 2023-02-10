@@ -7,30 +7,30 @@ import androidx.lifecycle.LiveData;
 
 import java.util.List;
 
-public class TelemetryLogRepository {
+public class DatabaseRepository {
 
     private TelemetryLogDao telemetryLogDao;
     private LiveData<List<TelemetryLog>> logs;
 
-    public TelemetryLogRepository (Application application){
+    public DatabaseRepository(Application application){
         TelemetryLogDatabase database = TelemetryLogDatabase.getInstance(application);
         telemetryLogDao = database.telemetryLogDao();
         logs = telemetryLogDao.getAllLogs();
     }
 
-    public void insert(TelemetryLog telemetryLog){
+    public void insertTelemetryLog(TelemetryLog telemetryLog){
         new InsertTelemetryLogAsyncTask(telemetryLogDao).execute(telemetryLog);
     }
-    public void update(TelemetryLog telemetryLog){
+    public void updateTelemetryLog(TelemetryLog telemetryLog){
         new UpdateTelemetryLogAsyncTask(telemetryLogDao).execute(telemetryLog);
     }
-    public void delete(TelemetryLog telemetryLog){
+    public void deleteTelemetryLog(TelemetryLog telemetryLog){
         new DeleteTelemetryLogAsyncTask(telemetryLogDao).execute(telemetryLog);
     }
-    public void deleteAll(){
+    public void deleteAllTelemetryLogs(){
         new DeleteAllTelemetryLogAsyncTask(telemetryLogDao).execute();
     }
-    public LiveData<List<TelemetryLog>> getLogs(){
+    public LiveData<List<TelemetryLog>> getTelemetryLogs(){
         return logs;
     }
 
