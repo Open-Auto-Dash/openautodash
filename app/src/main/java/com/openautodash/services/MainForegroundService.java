@@ -1,4 +1,4 @@
-package com.openautodash;
+package com.openautodash.services;
 
 import android.app.Service;
 import android.content.Intent;
