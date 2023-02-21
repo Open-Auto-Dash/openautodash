@@ -1,15 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
-    <color name="backGround">#EFF9F9FF</color>
-    <color name="backGroundNight">#15202b</color>
-    <color name="backGroundDefault">#EFF9F9FF</color>
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+    <color name="colorAccent">#3F51B5</color>
+    <color name="colorForeground">#f6f7fb</color>
+
+    <color name="colorButton">@color/colorPrimary</color>
+    <color name="colorButtonLight">#eef1f7</color>
+    <color name="colorButtonShade">#eff0f2</color>
+    <color name="colorButtonPressed">#990C9592</color>
+    <color name="colorButtonGradientOutside">#10cbc8</color>
+    <color name="colorButtonGradientCenter">#053d3c</color>
+    <color name="colorButtonDanger">#d9534f</color>
+    <color name="colorButtonPressedDanger">#d9534f</color>
+    <color name="colorButtonDangerGradientOutside">#FFEA5B5B</color>
+    <color name="colorButtonDangerGradientCenter">#FF150204</color>
+    <color name="colorButtonGetApp">#01875f</color>
+
+
+    <color name="recyclerViewSelectedColor">#D3D3D3</color>
+    <color name="colorBackgroundDefault">#f6f7fb</color>
+    <color name="colorBackgroundLight">#ffffff</color>
+
+    <color name="colorEditTextSolid">#ffffff</color>
+    <color name="colorEditTextBoarder">#D4DBE6</color>
 
     <color name="colorTextTitle">#1f1f1f</color>
     <color name="colorTextSubTitle">#494949</color>
@@ -26,4 +40,6 @@
     <color name="colorLight">#BFBFBF</color>
     <color name="colorBright">#FAFAFA</color>
 
+
+    <color name="colorIconsDefault">#404040</color>
 </resources>

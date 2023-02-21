@@ -3,6 +3,7 @@ package com.openautodash.services;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Notification;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -18,8 +19,8 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.GnssStatus;
 import android.location.Location;
-import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.StrictMode;
@@ -32,14 +33,19 @@ import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.lifecycle.MutableLiveData;
+
+import com.openautodash.MainActivity;
 import com.openautodash.R;
 import com.openautodash.enums.VehicleState;
 import com.openautodash.object.PhoneKey;
 import com.openautodash.utilities.LocalSettings;
+import com.openautodash.utilities.LocationListener;
 
 import static com.openautodash.App.ForegroundService;
 import static com.openautodash.App.VehicleInformation;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -57,6 +63,8 @@ public class MainForegroundService extends Service implements SensorEventListene
     // GPS / Location stuff
     private LocationManager locationManager;
     private LocationListener locationListener;
+    private MutableLiveData<Location> locationLiveData = new MutableLiveData<>();
+
     private GnssStatus.Callback gnssCallback;
     private GnssStatus gnssStatus;
     private Location currentLocation;
@@ -72,8 +80,19 @@ public class MainForegroundService extends Service implements SensorEventListene
     private VehicleState vehicleState;
 
     private long lastSawKey;
-    private List<PhoneKey> phoneKeyList;
+    private List<PhoneKey> phoneKeyList = new ArrayList<>();
 
+    public class MainForegroundServiceBinder extends Binder{
+        public MainForegroundService getService(){
+            return MainForegroundService.this;
+        }
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return new MainForegroundServiceBinder();
+    }
 
     @Override
     public void onCreate() {
@@ -89,34 +108,38 @@ public class MainForegroundService extends Service implements SensorEventListene
         sensorManager.registerListener((SensorEventListener) this, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
 
         locationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
+        locationListener = new LocationListener(locationLiveData);
 
         // init variables
-        phoneKeyList = settings.getPhoneKeys();
+        phoneKeyList = settings.getPhoneKeys(); // Load into a local variable because reading from LocalSettings is slow.
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "onStartCommand");
         // If we get killed, after returning from here, restart
+        Intent notificationIntent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this,
+                0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new NotificationCompat.Builder(this, ForegroundService)
                 .setContentTitle("Background Service Running")
                 .setSmallIcon(R.drawable.ic_my_location_black_24dp)
                 .setPriority(NotificationManagerCompat.IMPORTANCE_LOW)
+                .setContentIntent(pendingIntent)
                 .build();
-        startForeground(32, notification);
+        startForeground(10, notification);
 
         handler.post(runnable);
 
-        initLocationListener();
+        setLocationListener(1000,0);
         initBluetooth();
 
         return START_STICKY;
     }
 
-    @Nullable
     @Override
-    public IBinder onBind(Intent intent) {
-        return null;
+    public boolean onUnbind(Intent intent) {
+        return super.onUnbind(intent);
     }
 
     @Override
@@ -128,6 +151,9 @@ public class MainForegroundService extends Service implements SensorEventListene
         }
     }
 
+    public MutableLiveData<Location> getLocationLiveData() {
+        return locationLiveData;
+    }
 
     private final Handler handler = new Handler();
     private final Runnable runnable = new Runnable() {
@@ -164,33 +190,12 @@ public class MainForegroundService extends Service implements SensorEventListene
 
 
 
-    private boolean initLocationListener() {
-        Log.d(TAG, "initLocationListener");
-        locationListener = new LocationListener() {
-            @Override
-            public void onLocationChanged(@NonNull Location location) {
-                currentLocation = location;
-                Log.d(TAG, "onLocationChanged");
-
-                Intent intent = new Intent("location_update");
-                intent.putExtra("location", currentLocation);
-                sendBroadcast(intent);
-            }
-
-            // Make a fuss if location is not turned on.
-            @Override
-            public void onProviderDisabled(String s) {
-                Log.d(TAG, "onProviderDisabled");
-                Intent i = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-                i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(i);
-            }
-        };
+    private boolean setLocationListener(int minTimMs, int minDistanceM) {
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return false;
         }
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, locationListener);
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTimMs, minDistanceM, locationListener);
 
         gnssCallback = new GnssStatus.Callback() {
             @Override
@@ -231,9 +236,9 @@ public class MainForegroundService extends Service implements SensorEventListene
             final String action = intent.getAction();
             if (action.equals(BluetoothDevice.ACTION_FOUND)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                Log.d(TAG, "onReceive: FOUND DEVICE: " + device.getName() + " with address, " + device.getAddress());
-                if (phoneKeyList.stream().anyMatch(o -> o.getBluetoothMac().equals(device.getAddress()))) {
-                    Log.d(TAG, "onReceive: Key was detected");
+//                Log.d(TAG, "onReceive: FOUND DEVICE: " + device.getName() + " with address, " + device.getAddress());
+                if (phoneKeyList != null && phoneKeyList.stream().anyMatch(o -> o.getBluetoothMac().equals(device.getAddress()))) {
+//                    Log.d(TAG, "onReceive: Key was detected");
                     bluetoothAdapter.cancelDiscovery();
                     lastSawKey = System.currentTimeMillis();
                 }
@@ -254,10 +259,10 @@ public class MainForegroundService extends Service implements SensorEventListene
 
     @SuppressLint("MissingPermission")
     private void discoverKey(){
-        Log.d(TAG, "discoverKey: started");
+//        Log.d(TAG, "discoverKey: started");
         if(!bluetoothAdapter.isDiscovering()){
             bluetoothAdapter.startDiscovery();
-            Log.d(TAG, "discoverKey: Started Discovery");
+//            Log.d(TAG, "discoverKey: Started Discovery");
         }
         if(System.currentTimeMillis() - lastSawKey < 15000){
             btStatus = 1;
@@ -268,7 +273,7 @@ public class MainForegroundService extends Service implements SensorEventListene
 
         Intent intent = new Intent("data_update");
         sendBroadcast(intent);
-        Log.d(TAG, "discoverKey: stopped " + btStatus);
+//        Log.d(TAG, "discoverKey: stopped " + btStatus);
     }
 
     @Override
