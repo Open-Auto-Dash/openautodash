@@ -24,9 +24,12 @@ import android.hardware.SensorManager;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.provider.Settings;
+import android.util.Base64;
 import android.util.Log;
+import android.util.Xml;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -34,14 +37,37 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.android.volley.AuthFailureError;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.openautodash.enums.Units;
 import com.openautodash.services.MainForegroundService;
 import com.openautodash.ui.MapFragment;
 import com.openautodash.ui.TelemetryFragment;
+import com.openautodash.utilities.ModemInfo;
 import com.openautodash.utilities.Weather;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
+import java.io.IOException;
+import java.io.StringReader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -58,6 +84,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView clock;
     private TextView temp;
     private ImageView bluetoothStatusIcon;
+    private ImageView lteStatusView;
 
 
     //Fragments...........................
@@ -79,6 +106,10 @@ public class MainActivity extends AppCompatActivity {
     private Weather weather;
     private Location currentLocation;
 
+    private Handler handler;
+    private Runnable runnable;
+    private ModemInfo modemInfo;
+
     private SensorManager sensorManager;
     private long lastBrightnessTime;
 
@@ -87,16 +118,27 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         Log.d(TAG, "onCreate");
         setContentView(R.layout.activity_main);
+        fragmentRight = new MapFragment();
+        fragmentLeft = new TelemetryFragment();
+
+        getSupportFragmentManager()
+                .beginTransaction().replace(R.id.fragmentRightContainer, fragmentRight)
+                .commit();
+        getSupportFragmentManager()
+                .beginTransaction().replace(R.id.fragmentLeftContainer, fragmentLeft)
+                .commit();
 
         // Init views
         clock = findViewById(R.id.tv_m_clock);
         temp = findViewById(R.id.tv_main_temp);
         bluetoothStatusIcon = findViewById(R.id.iv_m_bluetooth_status);
+        lteStatusView = findViewById(R.id.iv_main_lte_signal);
 
 
         // Create a ViewModel instance in the activity scope
         liveDataViewModel = new ViewModelProvider(this).get(LiveDataViewModel.class);
         weather = new Weather(this);
+        modemInfo = new ModemInfo(this);
 
         //Set fullscreen
         View decorView = getWindow().getDecorView();
@@ -116,15 +158,10 @@ public class MainActivity extends AppCompatActivity {
 //            calculateScreenBrightness();
         }
 
-        fragmentRight = new MapFragment();
-        fragmentLeft = new TelemetryFragment();
+        ///////////////
+        startSignalStrengthUpdates();
 
-        getSupportFragmentManager()
-                .beginTransaction().replace(R.id.fragmentRightContainer, fragmentRight)
-                .commit();
-        getSupportFragmentManager()
-                .beginTransaction().replace(R.id.fragmentLeftContainer, fragmentLeft)
-                .commit();
+
     }
 
     @Override
@@ -207,6 +244,48 @@ public class MainActivity extends AppCompatActivity {
 
     public LiveDataViewModel getViewModel() {
         return liveDataViewModel;
+    }
+
+
+    private void startSignalStrengthUpdates() {
+        handler = new Handler();
+        runnable = new Runnable() {
+            @Override
+            public void run() {
+                modemInfo.updateInfo();
+                if(modemInfo.getSignalIcon() != null){
+                    switch (Integer.parseInt(modemInfo.getSignalIcon())){
+                        case 0:
+                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_0));
+                            break;
+                        case 1:
+                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_1));
+                            break;
+                        case 2:
+                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_2));
+                            break;
+                        case 3:
+                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_3));
+                            break;
+                        case 4:
+                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_4));
+                            break;
+                        case 5:
+                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_5));
+                            break;
+                        default:
+                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_0));
+                            break;
+                    }
+                }
+                handler.postDelayed(this, 5000); // 5000 milliseconds = 5 seconds
+            }
+        };
+        handler.post(runnable);
+    }
+
+    private void stopSignalStrengthUpdates() {
+        handler.removeCallbacks(runnable);
     }
 
     public boolean locationPermissionCheck(){

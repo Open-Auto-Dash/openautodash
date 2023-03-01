@@ -33,6 +33,9 @@
     <color name="colorPositive">#0066ff</color>
     <color name="colorBlueLight">#D4DBE6</color>
 
+    <color name="colorSignalBar">#404040</color>
+    <color name="colorSignalFill">#D4DBE6</color>
+
     <color name="colorBold">#1f1f1f</color>
     <color name="colorSemiBold">#404040</color>
     <color name="colorRegular">#545454</color>

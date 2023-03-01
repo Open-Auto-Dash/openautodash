@@ -13,10 +13,10 @@
         android:layout_height="0dp"
         app:layout_constraintBottom_toTopOf="@+id/bottomNavBar"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0">
 
     </RelativeLayout>
-
 
     <RelativeLayout
         android:id="@+id/fragmentLeftContainer"
@@ -268,13 +268,13 @@
         app:srcCompat="@drawable/ic_arrow_down" />
 
     <ImageView
-        android:id="@+id/imageView"
+        android:id="@+id/iv_main_lte_signal"
         android:layout_width="60dp"
-        android:layout_height="25dp"
+        android:layout_height="35dp"
         android:layout_marginStart="8dp"
+        app:layout_constraintBottom_toBottomOf="@+id/iv_m_bluetooth_status"
         app:layout_constraintStart_toEndOf="@+id/iv_m_bluetooth_status"
-        app:layout_constraintTop_toTopOf="@+id/iv_m_bluetooth_status"
-        app:srcCompat="@drawable/signal_3" />
+        app:srcCompat="@drawable/signal_lte_1" />
 
     <TextView
         android:id="@+id/tv_main_temp"

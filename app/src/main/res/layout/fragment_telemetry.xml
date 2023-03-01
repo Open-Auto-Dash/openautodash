@@ -133,9 +133,9 @@
             android:text="+"
             android:textAppearance="@style/TextAppearance.AppCompat.Display1"
             android:textSize="20sp"
-            app:layout_constraintBottom_toBottomOf="@+id/imageView"
-            app:layout_constraintStart_toEndOf="@+id/imageView"
-            app:layout_constraintTop_toTopOf="@+id/imageView" />
+            app:layout_constraintBottom_toBottomOf="@+id/iv_main_lte_signal"
+            app:layout_constraintStart_toEndOf="@+id/iv_main_lte_signal"
+            app:layout_constraintTop_toTopOf="@+id/iv_main_lte_signal" />
 
         <TextView
             android:id="@+id/tv_max_speed"
@@ -144,10 +144,10 @@
             android:text="100"
             android:textAppearance="@style/TextAppearance.AppCompat.Display1"
             android:textSize="24sp"
-            app:layout_constraintBottom_toBottomOf="@+id/imageView"
-            app:layout_constraintEnd_toEndOf="@+id/imageView"
-            app:layout_constraintStart_toStartOf="@+id/imageView"
-            app:layout_constraintTop_toTopOf="@+id/imageView" />
+            app:layout_constraintBottom_toBottomOf="@+id/iv_main_lte_signal"
+            app:layout_constraintEnd_toEndOf="@+id/iv_main_lte_signal"
+            app:layout_constraintStart_toStartOf="@+id/iv_main_lte_signal"
+            app:layout_constraintTop_toTopOf="@+id/iv_main_lte_signal" />
 
 <!--        <View-->
 <!--            android:id="@+id/view2"-->
@@ -160,7 +160,7 @@
 <!--            app:layout_constraintTop_toTopOf="@+id/imageView" />-->
 
         <ImageView
-            android:id="@+id/imageView"
+            android:id="@+id/iv_main_lte_signal"
             android:layout_width="80dp"
             android:layout_height="65dp"
             android:layout_marginTop="16dp"
@@ -178,9 +178,9 @@
             android:textAppearance="@style/TextAppearance.AppCompat.Display1"
             android:textDirection="rtl"
             android:textSize="30sp"
-            app:layout_constraintBottom_toBottomOf="@+id/imageView"
-            app:layout_constraintEnd_toStartOf="@+id/imageView"
-            app:layout_constraintTop_toTopOf="@+id/imageView" />
+            app:layout_constraintBottom_toBottomOf="@+id/iv_main_lte_signal"
+            app:layout_constraintEnd_toStartOf="@+id/iv_main_lte_signal"
+            app:layout_constraintTop_toTopOf="@+id/iv_main_lte_signal" />
 
         <TextView
             android:id="@+id/tv_m_gear"
