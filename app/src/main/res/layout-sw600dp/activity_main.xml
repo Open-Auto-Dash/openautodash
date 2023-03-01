@@ -7,14 +7,13 @@
     tools:context=".MainActivity">
 
 
-
     <RelativeLayout
         android:id="@+id/fragmentRightContainer"
         android:layout_width="950dp"
         android:layout_height="0dp"
         app:layout_constraintBottom_toTopOf="@+id/bottomNavBar"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" >
+        app:layout_constraintTop_toTopOf="parent">
 
     </RelativeLayout>
 
@@ -44,11 +43,10 @@
         android:id="@+id/iv_m_bluetooth_status"
         android:layout_width="28dp"
         android:layout_height="28dp"
-        android:layout_marginEnd="8dp"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_m_clock"
-        app:layout_constraintEnd_toStartOf="@+id/imageView"
-        app:layout_constraintTop_toTopOf="@+id/tv_m_clock"
-        app:layout_constraintVertical_bias="1.0"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintStart_toEndOf="@+id/fragmentLeftContainer"
+        app:layout_constraintTop_toTopOf="parent"
         app:srcCompat="@drawable/ic_bluetooth" />
 
     <TextView
@@ -273,9 +271,22 @@
         android:id="@+id/imageView"
         android:layout_width="60dp"
         android:layout_height="25dp"
-        android:layout_marginBottom="2dp"
+        android:layout_marginStart="8dp"
+        app:layout_constraintStart_toEndOf="@+id/iv_m_bluetooth_status"
+        app:layout_constraintTop_toTopOf="@+id/iv_m_bluetooth_status"
+        app:srcCompat="@drawable/signal_3" />
+
+    <TextView
+        android:id="@+id/tv_main_temp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="32dp"
+        android:onClick="updateTemp"
+        android:text="-3°C"
+        android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+        android:textSize="22sp"
         app:layout_constraintBottom_toBottomOf="@+id/tv_m_clock"
         app:layout_constraintEnd_toStartOf="@+id/tv_m_clock"
-        app:srcCompat="@drawable/signal_3" />
+        app:layout_constraintTop_toTopOf="@+id/tv_m_clock" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

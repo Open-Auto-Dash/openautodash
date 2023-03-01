@@ -40,7 +40,8 @@
     "elementType": "labels.text.fill",
     "stylers": [
       {
-        "color": "#d59563"
+        "color": "#d59563",
+        "visibility": "simplified"
       }
     ]
   },

@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 
 import com.google.gson.Gson;
 import com.openautodash.R;
+import com.openautodash.enums.Units;
 import com.openautodash.object.PhoneKey;
 
 import java.util.Arrays;
@@ -43,5 +44,13 @@ public class LocalSettings {
             return Arrays.asList(gson.fromJson(keysString, PhoneKey.class));
         }
         return null;
+    }
+
+    public void setSpeedUnits(Units units){
+        editor.putString("speedUnits", String.valueOf(units));
+    }
+
+    public double getSpeedUnits(){
+        return Double.parseDouble(preferences.getString("speedUnits", "3.6"));
     }
 }

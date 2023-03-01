@@ -5,7 +5,6 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModelProvider;
 
 import android.Manifest;
@@ -15,16 +14,15 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.location.GnssStatus;
 import android.location.Location;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
@@ -36,9 +34,11 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.openautodash.enums.Units;
 import com.openautodash.services.MainForegroundService;
 import com.openautodash.ui.MapFragment;
 import com.openautodash.ui.TelemetryFragment;
+import com.openautodash.utilities.Weather;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -56,8 +56,7 @@ public class MainActivity extends AppCompatActivity {
 
     //Views
     private TextView clock;
-    private TextView gpsStatus;
-
+    private TextView temp;
     private ImageView bluetoothStatusIcon;
 
 
@@ -77,8 +76,8 @@ public class MainActivity extends AppCompatActivity {
     private SensorEventListener sensorEventListenerLight;
     private final SimpleDateFormat clockTime = new SimpleDateFormat("h:mm a");
 
-    private Location location;
-    private GnssStatus gnssStatus;
+    private Weather weather;
+    private Location currentLocation;
 
     private SensorManager sensorManager;
     private long lastBrightnessTime;
@@ -91,11 +90,13 @@ public class MainActivity extends AppCompatActivity {
 
         // Init views
         clock = findViewById(R.id.tv_m_clock);
+        temp = findViewById(R.id.tv_main_temp);
         bluetoothStatusIcon = findViewById(R.id.iv_m_bluetooth_status);
 
 
         // Create a ViewModel instance in the activity scope
         liveDataViewModel = new ViewModelProvider(this).get(LiveDataViewModel.class);
+        weather = new Weather(this);
 
         //Set fullscreen
         View decorView = getWindow().getDecorView();
@@ -135,8 +136,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        startAndConnectMainService();
 
         clock.setText(clockTime.format(new Date()));
+//        temp.setText(weather.getCurrentTemp(currentLocation, Units.Metric));
+
 
         if(clockReceiver == null){
             clockReceiver = new BroadcastReceiver() {
@@ -147,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             };
         }
-
+        registerReceiver(clockReceiver, new IntentFilter(Intent.ACTION_TIME_TICK));
     }
 
     @Override
@@ -182,6 +186,7 @@ public class MainActivity extends AppCompatActivity {
 
             mainForegroundService.getLocationLiveData().observe(MainActivity.this, location -> {
                 liveDataViewModel.setLocation(location);
+                currentLocation = location;
                 Log.d(TAG, String.format("onServiceConnected: lat: %f, lng: %f ", location.getLatitude(), location.getLongitude()));
             });
         }
@@ -244,6 +249,10 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
         return true;
+    }
+
+    public void updateTemp(View view){
+        temp.setText(weather.getCurrentTemp(currentLocation, Units.Metric));
     }
 
     void keepScreenOn(boolean on){
