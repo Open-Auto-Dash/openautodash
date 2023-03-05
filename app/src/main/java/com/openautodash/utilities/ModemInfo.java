@@ -138,6 +138,8 @@ public class ModemInfo {
 
                             // Use the session ID and token to make the actual API call
                             String url = "http://192.168.1.1/api/monitoring/status";
+                            String url1 = "http://192.168.1.1/api/device/signal";
+                            String url2 = "http://192.168.1.1/api/device/signal";
                             StringRequest signalStrengthRequest = new StringRequest(Request.Method.GET, url,
                                     new Response.Listener<String>() {
                                         @Override
@@ -204,6 +206,77 @@ public class ModemInfo {
                                             } catch (XmlPullParserException | IOException e) {
                                                 e.printStackTrace();
                                             }
+                                        }
+                                    },
+                                    new Response.ErrorListener() {
+                                        @Override
+                                        public void onErrorResponse(VolleyError error) {
+                                            Log.e("Error", "Error getting signal strength", error);
+                                            XmlPullParser parser = Xml.newPullParser();
+                                            try {
+                                                parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false);
+                                                parser.setInput(new StringReader(response));
+                                                int eventType = parser.getEventType();
+                                            } catch (XmlPullParserException e) {
+                                                throw new RuntimeException(e);
+                                            }
+                                        }
+                                    }) {
+                                @Override
+                                public Map<String, String> getHeaders() throws AuthFailureError {
+                                    Map<String, String> headers = new HashMap<>();
+                                    headers.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+                                    headers.put("__RequestVerificationToken", token);
+                                    headers.put("Cookie", sessionId);
+                                    return headers;
+                                }
+                            };
+
+                            // Add the signal strength request to the Volley request queue
+                            RequestQueue requestQueue = Volley.newRequestQueue(context);
+                            requestQueue.add(signalStrengthRequest);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Log.e("Error", "Error obtaining session ID and token", error);
+                    }
+                });
+
+// Add the SesTokInfo request to the Volley request queue
+        RequestQueue requestQueue = Volley.newRequestQueue(context);
+        requestQueue.add(sesTokInfoRequest);
+    }
+
+    public void updateInfoDialUp(){
+        // Make a request to the SesTokInfo endpoint to obtain the session ID and token
+        String sesTokInfoUrl = "http://192.168.1.1/api/webserver/SesTokInfo";
+        StringRequest sesTokInfoRequest = new StringRequest(Request.Method.GET, sesTokInfoUrl,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        try {
+                            // Parse the response to obtain the session ID and token
+                            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+                            DocumentBuilder builder = factory.newDocumentBuilder();
+                            Document doc = builder.parse(new InputSource(new StringReader(response)));
+                            String sessionId = doc.getElementsByTagName("SesInfo").item(0).getTextContent();
+                            String token = doc.getElementsByTagName("TokInfo").item(0).getTextContent();
+
+                            // Use the session ID and token to make the actual API call
+                            String url = "http://192.168.1.1/api/monitoring/status";
+                            String url1 = "http://192.168.1.1/api/device/signal";
+                            String url2 = "http://192.168.1.1/api/device/signal";
+                            String url3 = "http://192.168.1.1/api/dialup/connection";
+                            StringRequest signalStrengthRequest = new StringRequest(Request.Method.GET, url3,
+                                    new Response.Listener<String>() {
+                                        @Override
+                                        public void onResponse(String response) {
+                                            Log.d(TAG, "onResponse: " + response);
                                         }
                                     },
                                     new Response.ErrorListener() {

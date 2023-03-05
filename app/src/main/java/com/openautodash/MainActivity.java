@@ -23,6 +23,8 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
 import android.net.Uri;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -109,6 +111,8 @@ public class MainActivity extends AppCompatActivity {
     private Handler handler;
     private Runnable runnable;
     private ModemInfo modemInfo;
+    WifiManager wifiManager;
+    WifiInfo wifiInfo;
 
     private SensorManager sensorManager;
     private long lastBrightnessTime;
@@ -139,6 +143,15 @@ public class MainActivity extends AppCompatActivity {
         liveDataViewModel = new ViewModelProvider(this).get(LiveDataViewModel.class);
         weather = new Weather(this);
         modemInfo = new ModemInfo(this);
+        wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+
+        //Click Listeners
+        lteStatusView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
+            }
+        });
 
         //Set fullscreen
         View decorView = getWindow().getDecorView();
@@ -150,11 +163,11 @@ public class MainActivity extends AppCompatActivity {
         keepScreenOn(true);
 
         //Check required permissions.
-        if(locationPermissionCheck()){
+        if (locationPermissionCheck()) {
             startAndConnectMainService();
         }
 
-        if(systemWritePermissionCheck()){
+        if (systemWritePermissionCheck()) {
 //            calculateScreenBrightness();
         }
 
@@ -179,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
 //        temp.setText(weather.getCurrentTemp(currentLocation, Units.Metric));
 
 
-        if(clockReceiver == null){
+        if (clockReceiver == null) {
             clockReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context ctx, Intent intent) {
@@ -197,7 +210,7 @@ public class MainActivity extends AppCompatActivity {
         unBindService();
     }
 
-    public void startAndConnectMainService(){
+    public void startAndConnectMainService() {
         Log.d(TAG, "startAndConnectMainService");
         Intent intent = new Intent(getApplicationContext(), MainForegroundService.class);
         if (!isMyServiceRunning(MainForegroundService.class)) {
@@ -207,9 +220,9 @@ public class MainActivity extends AppCompatActivity {
         connectToMainService();
     }
 
-    public void connectToMainService(){
+    public void connectToMainService() {
         Intent intent = new Intent(this, MainForegroundService.class);
-        if(mainForegroundService == null){
+        if (mainForegroundService == null) {
             bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
             Log.d(TAG, "connectToMainService");
         }
@@ -234,8 +247,8 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private void unBindService(){
-        if(mainForegroundService != null){
+    private void unBindService() {
+        if (mainForegroundService != null) {
             Log.d(TAG, "unBindService...");
             unbindService(serviceConnection);
             mainForegroundService = null;
@@ -252,31 +265,37 @@ public class MainActivity extends AppCompatActivity {
         runnable = new Runnable() {
             @Override
             public void run() {
-                modemInfo.updateInfo();
-                if(modemInfo.getSignalIcon() != null){
-                    switch (Integer.parseInt(modemInfo.getSignalIcon())){
-                        case 0:
-                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_0));
-                            break;
-                        case 1:
-                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_1));
-                            break;
-                        case 2:
-                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_2));
-                            break;
-                        case 3:
-                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_3));
-                            break;
-                        case 4:
-                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_4));
-                            break;
-                        case 5:
-                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_5));
-                            break;
-                        default:
-                            lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_0));
-                            break;
+                wifiInfo = wifiManager.getConnectionInfo();
+                if (wifiInfo.getSSID().contains("My Fusion")) {
+                    modemInfo.updateInfo();
+                    if (modemInfo.getSignalIcon() != null) {
+                        switch (Integer.parseInt(modemInfo.getSignalIcon())) {
+                            case 0:
+                                lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_0));
+                                break;
+                            case 1:
+                                lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_1));
+                                break;
+                            case 2:
+                                lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_2));
+                                break;
+                            case 3:
+                                lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_3));
+                                break;
+                            case 4:
+                                lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_4));
+                                break;
+                            case 5:
+                                lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_5));
+                                break;
+                            default:
+                                lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_0));
+                                break;
+                        }
                     }
+                }
+                else{
+                    lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_wifi_0));
                 }
                 handler.postDelayed(this, 5000); // 5000 milliseconds = 5 seconds
             }
@@ -288,7 +307,7 @@ public class MainActivity extends AppCompatActivity {
         handler.removeCallbacks(runnable);
     }
 
-    public boolean locationPermissionCheck(){
+    public boolean locationPermissionCheck() {
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
                 // Show an explanation to the user
@@ -300,13 +319,13 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
-    public boolean systemWritePermissionCheck(){
+    public boolean systemWritePermissionCheck() {
         if (!Settings.System.canWrite(this)) {
             // Permission is not granted
             Dialog dialog = new Dialog(this);
             dialog.setContentView(R.layout.dialog_permission_write_settings);
             dialog.getWindow().setBackgroundDrawable(ResourcesCompat.getDrawable(this.getResources(), R.drawable.background_dialog, null));
-            dialog.getWindow().setLayout((int)(ViewGroup.LayoutParams.WRAP_CONTENT), ViewGroup.LayoutParams.WRAP_CONTENT);
+            dialog.getWindow().setLayout((int) (ViewGroup.LayoutParams.WRAP_CONTENT), ViewGroup.LayoutParams.WRAP_CONTENT);
             dialog.setCancelable(true);
 
             dialog.findViewById(R.id.b_dialog_write_permission_cancel).setOnClickListener(new View.OnClickListener() {
@@ -330,22 +349,21 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
-    public void updateTemp(View view){
+    public void updateTemp(View view) {
         temp.setText(weather.getCurrentTemp(currentLocation, Units.Metric));
     }
 
-    void keepScreenOn(boolean on){
+    void keepScreenOn(boolean on) {
         //Keep screen on call the time.
-        if(on) {
+        if (on) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        }
-        else{
+        } else {
             getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
     }
 
 
-    void calculateScreenBrightness(){
+    void calculateScreenBrightness() {
         //Light sensor
         sensorManager = (SensorManager) getApplicationContext().getSystemService(Context.SENSOR_SERVICE);
         Sensor sensorLight = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
@@ -354,7 +372,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSensorChanged(SensorEvent event) {
                 float floatSensorValue = event.values[0]; // lux
-                if(System.currentTimeMillis() - lastBrightnessTime > 1000) {
+                if (System.currentTimeMillis() - lastBrightnessTime > 1000) {
                     lastBrightnessTime = System.currentTimeMillis();
                     if (floatSensorValue < 50) {
                         setBrightness(55);
@@ -363,6 +381,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             }
+
             @Override
             public void onAccuracyChanged(Sensor sensor, int accuracy) {
             }
@@ -370,7 +389,7 @@ public class MainActivity extends AppCompatActivity {
         sensorManager.registerListener(sensorEventListenerLight, sensorLight, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
-    void setBrightness(int brightness){
+    void setBrightness(int brightness) {
         // Get the current window attributes
         WindowManager.LayoutParams layoutpars = getWindow().getAttributes();
         // Set the brightness of this window
