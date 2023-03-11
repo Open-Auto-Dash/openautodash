@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "921816481561",
+    "project_id": "open-autodash",
+    "storage_bucket": "open-autodash.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:921816481561:android:96b3b052153b8f48f84f88",
+        "android_client_info": {
+          "package_name": "com.openautodash"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "921816481561-8gp0fodchnqsi7vhv43i27auue9vaipb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBrjmWMrwxfpnP-TQVSBzkWEZ1w9DoSp10"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "921816481561-8gp0fodchnqsi7vhv43i27auue9vaipb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

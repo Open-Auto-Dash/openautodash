@@ -17,6 +17,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.graphics.ColorSpace;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -170,6 +171,7 @@ public class MainActivity extends AppCompatActivity {
         if (systemWritePermissionCheck()) {
 //            calculateScreenBrightness();
         }
+
 
         ///////////////
         startSignalStrengthUpdates();
