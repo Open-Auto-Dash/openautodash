@@ -45,4 +45,5 @@
 
 
     <color name="colorIconsDefault">#404040</color>
+    <color name="colorIconsBold">#7A7A7A</color>
 </resources>

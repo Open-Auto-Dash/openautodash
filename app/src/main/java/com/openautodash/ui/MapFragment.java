@@ -1,18 +1,17 @@
 package com.openautodash.ui;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
-import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -53,9 +52,6 @@ import com.openautodash.MainActivity;
 import com.openautodash.R;
 import com.openautodash.utilities.LocalSettings;
 
-import java.util.Arrays;
-import java.util.List;
-
 public class MapFragment extends Fragment implements OnMapReadyCallback,
         GoogleMap.OnMapClickListener,
         GoogleMap.OnMarkerClickListener,
@@ -89,7 +85,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        liveDataViewModel = ((MainActivity) getActivity()).getViewModel();
+        liveDataViewModel = ((MainActivity) requireActivity()).getViewModel();
         settings = new LocalSettings(requireContext());
     }
 
@@ -179,7 +175,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                     // in a raw resource file.
                     boolean success = googleMap.setMapStyle(
                             MapStyleOptions.loadRawResourceStyle(
-                                    getContext(), R.raw.style_json));
+                                    getContext(), R.raw.map_night_style));
 
                     if (!success) {
                         Log.e(TAG, "Style parsing failed.");
@@ -191,6 +187,13 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
 
             case Configuration.UI_MODE_NIGHT_NO:
                 Log.d(TAG, "onMapReady: Night Mode OFf");
+                boolean success = googleMap.setMapStyle(
+                        MapStyleOptions.loadRawResourceStyle(
+                                getContext(), R.raw.map_day_tesla_style));
+
+                if (!success) {
+                    Log.e(TAG, "Style parsing failed.");
+                }
                 break;
 
             case Configuration.UI_MODE_NIGHT_UNDEFINED:
@@ -225,10 +228,13 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                 0);
         map.animateCamera(CameraUpdateFactory.newCameraPosition(newCamPos), 1000, null);
 
+
+        Bitmap resizeBitmap = bitmapSizeByScale(BitmapFactory.decodeResource(requireContext().getResources(), R.drawable.marker_red), 0.6f);
+
         marker = map.addMarker(new MarkerOptions()
                 .position(location)
                 .title("Current Location")
-                .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker))
+                .icon(BitmapDescriptorFactory.fromBitmap(resizeBitmap))
                 .flat(true));
 
 
@@ -248,7 +254,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
 
         assert marker != null;
-        animateMarker(marker, latLng);
+        setMarker(marker, latLng);
         marker.setRotation(location.getBearing());
 
         if (isAnimating) {
@@ -281,32 +287,39 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
     }
 
     // Animates a marker to a new location
-    public void animateMarker(final Marker marker, final LatLng toPosition) {
-        final Handler handler = new Handler();
-        final long start = SystemClock.uptimeMillis();
-        Projection proj = map.getProjection();
-        Point startPoint = proj.toScreenLocation(marker.getPosition());
-        final LatLng startLatLng = proj.fromScreenLocation(startPoint);
-        final long duration = 900;
+    public void setMarker(final Marker marker, final LatLng toPosition) {
+        if(isAnimating) {
+            final Handler handler = new Handler();
+            final long start = SystemClock.uptimeMillis();
+            Projection proj = map.getProjection();
+            Point startPoint = proj.toScreenLocation(marker.getPosition());
+            final LatLng startLatLng = proj.fromScreenLocation(startPoint);
+            final long duration = 900;
 
-        final Interpolator interpolator = new LinearInterpolator();
+            final Interpolator interpolator = new LinearInterpolator();
 
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                long elapsed = SystemClock.uptimeMillis() - start;
-                float t = interpolator.getInterpolation((float) elapsed / duration);
-                double lng = t * toPosition.longitude + (1 - t) * startLatLng.longitude;
-                double lat = t * toPosition.latitude + (1 - t) * startLatLng.latitude;
-                LatLng latLng = new LatLng(lat, lng);
-                marker.setPosition(latLng);
+            Log.d(TAG, "animateMarker: " + marker.getPosition());
 
-                if (t < 1.0) {
-                    // Post again 16ms later (60 frames per second)
-                    handler.postDelayed(this, 32);
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    long elapsed = SystemClock.uptimeMillis() - start;
+                    float t = interpolator.getInterpolation((float) elapsed / duration);
+                    double lng = t * toPosition.longitude + (1 - t) * startLatLng.longitude;
+                    double lat = t * toPosition.latitude + (1 - t) * startLatLng.latitude;
+                    LatLng latLng = new LatLng(lat, lng);
+                    marker.setPosition(latLng);
+
+                    if (t < 1.0) {
+                        // Post again 16ms later (60 frames per second)
+                        handler.postDelayed(this, 32);
+                    }
                 }
-            }
-        });
+            });
+        }
+        else{
+            marker.setPosition(toPosition);
+        }
     }
 
     private int[] getMapZoomTilt(Location location){
@@ -347,5 +360,14 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
     @Override
     public void onPoiClick(@NonNull PointOfInterest pointOfInterest) {
         Log.d(TAG, "onPoiClick: POI: " + pointOfInterest.name);
+    }
+
+    public Bitmap bitmapSizeByScale(Bitmap bitmapIn, float scall_zero_to_one_f) {
+
+        Bitmap bitmapOut = Bitmap.createScaledBitmap(bitmapIn,
+                Math.round(bitmapIn.getWidth() * scall_zero_to_one_f),
+                Math.round(bitmapIn.getHeight() * scall_zero_to_one_f), false);
+
+        return bitmapOut;
     }
 }

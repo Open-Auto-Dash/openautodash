@@ -99,6 +99,14 @@ public class MainForegroundService extends Service implements SensorEventListene
         super.onCreate();
         Log.d(TAG, "onCreate");
 
+        PhoneKey key = new PhoneKey();
+        key.setBluetoothMac("5C:17:CF:7C:D8:79");
+        phoneKeyList.add(key);
+
+        for(PhoneKey key1: phoneKeyList){
+            Log.d(TAG, "onCreate: Keylist: " + key1.getBluetoothMac());
+        }
+
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder()
                 .permitAll().build();
         StrictMode.setThreadPolicy(policy); //No stupid strictness for me.
@@ -236,9 +244,9 @@ public class MainForegroundService extends Service implements SensorEventListene
             final String action = intent.getAction();
             if (action.equals(BluetoothDevice.ACTION_FOUND)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-//                Log.d(TAG, "onReceive: FOUND DEVICE: " + device.getName() + " with address, " + device.getAddress());
+                Log.d(TAG, "onReceive: FOUND DEVICE: " + device.getName() + " with address, " + device.getAddress());
                 if (phoneKeyList != null && phoneKeyList.stream().anyMatch(o -> o.getBluetoothMac().equals(device.getAddress()))) {
-//                    Log.d(TAG, "onReceive: Key was detected");
+                    Log.d(TAG, "onReceive: Key was detected");
                     bluetoothAdapter.cancelDiscovery();
                     lastSawKey = System.currentTimeMillis();
                 }

@@ -2,6 +2,7 @@ package com.openautodash.ui;
 
 import android.location.Location;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -49,9 +50,15 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "onCreate");
 
-        liveDataViewModel = ((MainActivity) getActivity()).getViewModel();
+        liveDataViewModel = ((MainActivity) requireActivity()).getViewModel();
         callback = this;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
     }
 
     @Override

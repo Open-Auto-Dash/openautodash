@@ -20,6 +20,9 @@ public class PhoneKey {
         return bluetoothMac;
     }
 
+    public void setBluetoothMac(String bluetoothMac){
+        this.bluetoothMac = bluetoothMac;
+    }
 
     public static JSONObject Serialize(PhoneKey key) {
 
