@@ -133,7 +133,7 @@
 
     <TextView
         android:id="@+id/tv_bottom_nav_bar_left_temp"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="18.5"
         android:textAlignment="center"
@@ -142,6 +142,7 @@
         android:textSize="34sp"
         app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
         app:layout_constraintEnd_toStartOf="@+id/iv_bottom_nav_bar_fan_setting_icon"
+        app:layout_constraintHorizontal_bias="0.4"
         app:layout_constraintStart_toEndOf="@+id/iv_bottom_nav_bar_left_seat_heater"
         app:layout_constraintTop_toTopOf="@+id/bottomNavBar" />
 
@@ -173,7 +174,7 @@
 
     <TextView
         android:id="@+id/tv_bottom_nav_bar_right_temp"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="18.5"
         android:textAlignment="center"
@@ -182,6 +183,7 @@
         android:textSize="34sp"
         app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
         app:layout_constraintEnd_toStartOf="@+id/iv_bottom_nav_bar_right_seat_heater"
+        app:layout_constraintHorizontal_bias="0.4"
         app:layout_constraintStart_toEndOf="@+id/iv_bottom_nav_bar_fan_setting_icon"
         app:layout_constraintTop_toTopOf="@+id/bottomNavBar" />
 
