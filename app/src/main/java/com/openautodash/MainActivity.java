@@ -48,6 +48,7 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
+import com.google.android.gms.maps.model.LatLng;
 import com.openautodash.enums.Units;
 import com.openautodash.services.MainForegroundService;
 import com.openautodash.ui.MapFragment;
@@ -108,6 +109,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Weather weather;
     private Location currentLocation;
+    private Location lastWeatherUpdateLocation;
 
     private Handler handler;
     private Runnable runnable;
@@ -239,6 +241,19 @@ public class MainActivity extends AppCompatActivity {
             mainForegroundService.getLocationLiveData().observe(MainActivity.this, location -> {
                 liveDataViewModel.setLocation(location);
                 currentLocation = location;
+
+                //Check weather?
+                if(lastWeatherUpdateLocation != null){
+                    if(lastWeatherUpdateLocation.distanceTo(currentLocation) > 5000){
+                        setWeather();
+                        lastWeatherUpdateLocation = currentLocation;
+                        Log.d(TAG, "onServiceConnected: Updated weather.");
+                    }
+                }
+                else{
+                    lastWeatherUpdateLocation = currentLocation;
+                }
+
                 Log.d(TAG, String.format("onServiceConnected: lat: %f, lng: %f ", location.getLatitude(), location.getLongitude()));
             });
         }
@@ -352,6 +367,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void updateTemp(View view) {
+        setWeather();
+    }
+
+    public void setWeather(){
         temp.setText(weather.getCurrentTemp(currentLocation, Units.Metric));
     }
 
