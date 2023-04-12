@@ -59,6 +59,22 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
     @Override
     public void onResume() {
         super.onResume();
+
+        //Get location updates
+        liveDataViewModel.getLocationData().observe(getViewLifecycleOwner(), new Observer<Location>() {
+            @Override
+            public void onChanged(Location location) {
+                locationUpdatesCount++;
+                speed.setText(String.valueOf((int)(location.getSpeed() * 3.6)));
+                alt.setText(String.valueOf((int)location.getAltitude()));
+
+                if(locationUpdatesCount > 5 && location.getSpeed() > 5){
+                    OverpassAPI overpassAPI = new OverpassAPI(getContext(), location, callback);
+                    overpassAPI.getSpeedLimit();
+                    locationUpdatesCount = 0;
+                }
+            }
+        });
     }
 
     @Override
@@ -79,21 +95,6 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
         songProgress = view.findViewById(R.id.pb_home_song_progress);
         playPause = view.findViewById(R.id.iv_home_play);
 
-        //Get location updates
-        liveDataViewModel.getLocationData().observe(getViewLifecycleOwner(), new Observer<Location>() {
-            @Override
-            public void onChanged(Location location) {
-                locationUpdatesCount++;
-                speed.setText(String.valueOf((int)(location.getSpeed() * 3.6)));
-                alt.setText(String.valueOf((int)location.getAltitude()));
-
-                if(locationUpdatesCount > 5 && location.getSpeed() > 5){
-                    OverpassAPI overpassAPI = new OverpassAPI(getContext(), location, callback);
-                    overpassAPI.getSpeedLimit();
-                    locationUpdatesCount = 0;
-                }
-            }
-        });
         return view;
     }
 
