@@ -55,8 +55,7 @@ import com.openautodash.utilities.LocalSettings;
 public class MapFragment extends Fragment implements OnMapReadyCallback,
         GoogleMap.OnMapClickListener,
         GoogleMap.OnMarkerClickListener,
-        GoogleMap.OnPoiClickListener
-{
+        GoogleMap.OnPoiClickListener {
     private static final String TAG = "MapFragment";
 
 
@@ -121,11 +120,10 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         mapTypeView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(map.getMapType() == GoogleMap.MAP_TYPE_NORMAL){
+                if (map.getMapType() == GoogleMap.MAP_TYPE_NORMAL) {
                     map.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
                     mapTypeView.setBackground(getContext().getResources().getDrawable(R.drawable.background_image_view_sellected));
-                }
-                else{
+                } else {
                     map.setMapType(GoogleMap.MAP_TYPE_NORMAL);
                     mapTypeView.setBackground(null);
                 }
@@ -135,11 +133,10 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         mapTrafficView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(!map.isTrafficEnabled()){
+                if (!map.isTrafficEnabled()) {
                     map.setTrafficEnabled(true);
                     mapTrafficView.setBackground(getContext().getResources().getDrawable(R.drawable.background_image_view_sellected));
-                }
-                else{
+                } else {
                     map.setTrafficEnabled(false);
                     mapTrafficView.setBackground(null);
                 }
@@ -164,7 +161,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         map.getUiSettings().setZoomControlsEnabled(true);
         map.setOnMapClickListener(this);
         map.setOnPoiClickListener(this);
-        map.setPadding(0,400,0,0);
+        map.setPadding(0, 400, 0, 0);
 
         int nightModeFlags = getContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         switch (nightModeFlags) {
@@ -250,7 +247,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         });
     }
 
-    private void updateMap(Location location, boolean driftOff){
+    private void updateMap(Location location, boolean driftOff) {
         LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
 
         assert marker != null;
@@ -270,6 +267,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                         mapMoving = false;
                         // Code to execute when the animateCamera task has finished
                     }
+
                     @Override
                     public void onCancel() {
                         mapMoving = false;
@@ -288,17 +286,17 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
 
     // Animates a marker to a new location
     public void setMarker(final Marker marker, final LatLng toPosition) {
-        if(isAnimating) {
-            final Handler handler = new Handler();
-            final long start = SystemClock.uptimeMillis();
-            Projection proj = map.getProjection();
-            Point startPoint = proj.toScreenLocation(marker.getPosition());
-            final LatLng startLatLng = proj.fromScreenLocation(startPoint);
-            final long duration = 900;
+        final Handler handler = new Handler();
+        final long start = SystemClock.uptimeMillis();
+        Projection proj = map.getProjection();
+        Point startPoint = proj.toScreenLocation(marker.getPosition());
+        final LatLng startLatLng = proj.fromScreenLocation(startPoint);
 
-            final Interpolator interpolator = new LinearInterpolator();
+        final long duration = 900;
 
-            Log.d(TAG, "animateMarker: " + marker.getPosition());
+        final Interpolator interpolator = new LinearInterpolator();
+        if (startLatLng != null) {
+            Log.e(TAG, "setMarker: Error startLatLng is null");
 
             handler.post(new Runnable() {
                 @Override
@@ -311,7 +309,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                     marker.setPosition(latLng);
 
                     if (t < 1.0) {
-                        // Post again 16ms later (60 frames per second)
+                        // Post again 32ms later (30 frames per second)
                         handler.postDelayed(this, 32);
                     }
                 }
@@ -322,9 +320,9 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         }
     }
 
-    private int[] getMapZoomTilt(Location location){
+    private int[] getMapZoomTilt(Location location) {
         int speedInt = (int) (location.getSpeed() * settings.getSpeedUnits());
-        int[] zoomTilt = {15,55};
+        int[] zoomTilt = {15, 55};
 
         if (speedInt < 102) {
             zoomTilt[0] = 16;
