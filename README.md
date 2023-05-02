@@ -15,10 +15,12 @@ Yup, you can... ah will be able to use your android phone as a key to start and 
     - Navigation  🔴
     - ADSB In Receiver (Show aircrafts on map) ➕ 🔴
     
-- UI Features
+- Utilities
     - Dark/Light Mode ✅ (Follows system settings)
-    - Current external temperature (openweathermap.org)
-    - Shows LTE signal strength of connected LTE WIFI stick. Sold seperatly (Huawei E8372)
+    - Current external temperature ✅ (openweathermap.org)
+    - Shows LTE signal strength of connected LTE WIFI stick.✅  Sold seperatly (Huawei E8372)
+    - Dashcam, front and rear continuous recording. 🔴
+    - Reply to messages and view notifications. 🔴
     
 - Entertainment
     - Spotify Intigration ✅ (Requires Spotify App installed on device, with Premium account)
