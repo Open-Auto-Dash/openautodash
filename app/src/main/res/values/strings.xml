@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Open Auto Dash</string>
+    <string name="command_feedback">Command feedback</string>
 </resources>

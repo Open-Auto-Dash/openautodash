@@ -22,6 +22,8 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.net.Uri;
 import android.net.wifi.WifiInfo;
@@ -68,6 +70,8 @@ import java.io.StringReader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -245,6 +249,19 @@ public class MainActivity extends AppCompatActivity {
                 //Check weather?
                 if(lastWeatherUpdateLocation != null){
                     if(lastWeatherUpdateLocation.distanceTo(currentLocation) > 5000){
+                        Geocoder gcd = new Geocoder(getApplicationContext(), Locale.getDefault());
+                        List<Address> addresses = null;
+                        try {
+                            addresses = gcd.getFromLocation(currentLocation.getLatitude(), currentLocation.getLongitude(), 1);
+                        } catch (IOException ignored) {
+
+                        }
+
+                        if (addresses.size() > 0)
+                        {
+                            String countryName=addresses.get(0).getCountryCode();
+                            Log.d(TAG, "onServiceConnected: Country " + countryName);
+                        }
                         setWeather();
                         lastWeatherUpdateLocation = currentLocation;
                         Log.d(TAG, "onServiceConnected: Updated weather.");

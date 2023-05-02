@@ -43,6 +43,9 @@
     <color name="colorLight">#BFBFBF</color>
     <color name="colorBright">#FAFAFA</color>
 
+    <color name="cat_medium_green">#1db954</color>
+    <color name="cat_light_green">#1ed760</color>
+
 
     <color name="colorIconsDefault">#404040</color>
     <color name="colorIconsBold">#7A7A7A</color>

@@ -54,6 +54,7 @@ dependencies {
 
     implementation 'com.spotify.android:auth:2.0.2'
     implementation files('../libs/spotify-app-remote-release-0.7.2.aar')
+//    implementation files('../app-remote-lib/spotify-app-remote-release-0.7.2.aar')
 
 
     // ViewModel
