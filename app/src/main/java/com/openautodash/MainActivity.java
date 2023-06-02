@@ -1,6 +1,8 @@
 package com.openautodash;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
@@ -17,6 +19,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.ColorSpace;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -33,8 +36,10 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.util.Base64;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Xml;
+import android.view.Display;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -93,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView temp;
     private ImageView bluetoothStatusIcon;
     private ImageView lteStatusView;
+    private View bottomNavBar;
 
 
     //Fragments...........................
@@ -144,6 +150,9 @@ public class MainActivity extends AppCompatActivity {
         temp = findViewById(R.id.tv_main_temp);
         bluetoothStatusIcon = findViewById(R.id.iv_m_bluetooth_status);
         lteStatusView = findViewById(R.id.iv_main_lte_signal);
+
+        bottomNavBar = findViewById(R.id.bottomNavBar);
+        updateLayoutWidth();
 
 
         // Create a ViewModel instance in the activity scope
@@ -210,6 +219,12 @@ public class MainActivity extends AppCompatActivity {
             };
         }
         registerReceiver(clockReceiver, new IntentFilter(Intent.ACTION_TIME_TICK));
+    }
+
+    @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        updateLayoutWidth();
     }
 
     @Override
@@ -389,6 +404,32 @@ public class MainActivity extends AppCompatActivity {
 
     public void setWeather(){
         temp.setText(weather.getCurrentTemp(currentLocation, Units.Metric));
+    }
+
+    private void updateLayoutWidth() {
+        Log.d(TAG, "updateLayoutWidth");
+        // Calculate screen width
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        WindowManager windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        Display display = windowManager.getDefaultDisplay();
+        display.getMetrics(displayMetrics);
+        int screenWidth = displayMetrics.widthPixels;
+
+        Log.d(TAG, "updateLayoutWidth: Screen Width is: " + screenWidth);
+
+        // Set the desired minimum width in dp
+        int desiredMinWidth = 1800;
+
+        // Set the layout_width based on screen width
+        ConstraintLayout.LayoutParams layoutParams = (ConstraintLayout.LayoutParams) bottomNavBar.getLayoutParams();
+        if (screenWidth > desiredMinWidth) {
+            Log.d(TAG, "updateLayoutWidth: " + screenWidth);
+            layoutParams.width = screenWidth;
+        } else {
+            Log.d(TAG, "updateLayoutWidth: " + desiredMinWidth);
+            layoutParams.width = desiredMinWidth;
+        }
+        bottomNavBar.setLayoutParams(layoutParams);
     }
 
     void keepScreenOn(boolean on) {
