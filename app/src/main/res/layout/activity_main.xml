@@ -11,17 +11,18 @@
         android:id="@+id/fragmentRightContainer"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:elevation="-5dp"
         app:layout_constraintBottom_toTopOf="@+id/bottomNavBarContainer"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="@+id/fragmentLeftContainer"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent" >
+    </RelativeLayout>
 
 
     <RelativeLayout
         android:id="@+id/fragmentLeftContainer"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:elevation="10dp"
         android:background="@color/colorBackgroundDefault"
         app:layout_constraintBottom_toTopOf="@+id/bottomNavBarContainer"
         app:layout_constraintEnd_toEndOf="parent"
@@ -39,22 +40,12 @@
         app:layout_constraintTop_toTopOf="parent" />
 
 
-    <ImageView
-        android:id="@+id/iv_m_bluetooth_status"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintStart_toEndOf="@+id/fragmentLeftContainer"
-        app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/ic_bluetooth" />
-
     <TextView
         android:id="@+id/tv_m_clock"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:layout_marginEnd="24dp"
+        android:layout_marginEnd="8dp"
         android:text="12:17 PM"
         android:textAlignment="textEnd"
         android:textAppearance="@style/TextAppearance.AppCompat.Body2"
@@ -64,6 +55,48 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <ImageView
+        android:id="@+id/iv_m_bluetooth_status"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/ic_bluetooth" />
+
+    <ImageView
+        android:id="@+id/iv_main_lte_signal"
+        android:layout_width="60dp"
+        android:layout_height="35dp"
+        android:layout_marginStart="8dp"
+        app:layout_constraintBottom_toBottomOf="@+id/iv_m_bluetooth_status"
+        app:layout_constraintStart_toEndOf="@+id/iv_m_bluetooth_status"
+        app:srcCompat="@drawable/signal_lte_1" />
+
+    <TextView
+        android:id="@+id/tv_main_temp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:onClick="updateTemp"
+        android:text="20°C"
+        android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+        android:textSize="22sp"
+        app:layout_constraintBottom_toBottomOf="@+id/tv_m_clock"
+        app:layout_constraintEnd_toStartOf="@+id/tv_m_clock"
+        app:layout_constraintTop_toTopOf="@+id/tv_m_clock" />
+
+    <ImageView
+        android:id="@+id/iv_m_wind_dir"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:rotation="90"
+        app:layout_constraintBottom_toBottomOf="@+id/tv_main_temp"
+        app:layout_constraintEnd_toStartOf="@+id/tv_main_temp"
+        app:layout_constraintTop_toTopOf="@+id/tv_main_temp"
+        app:srcCompat="@drawable/wind_direction" />
 
     <HorizontalScrollView
         android:id="@+id/bottomNavBarContainer"
@@ -281,27 +314,4 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
     </HorizontalScrollView>
-
-    <ImageView
-        android:id="@+id/iv_main_lte_signal"
-        android:layout_width="60dp"
-        android:layout_height="35dp"
-        android:layout_marginStart="8dp"
-        app:layout_constraintBottom_toBottomOf="@+id/iv_m_bluetooth_status"
-        app:layout_constraintStart_toEndOf="@+id/iv_m_bluetooth_status"
-        app:srcCompat="@drawable/signal_lte_1" />
-
-    <TextView
-        android:id="@+id/tv_main_temp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="32dp"
-        android:onClick="updateTemp"
-        android:text="-3°C"
-        android:textAppearance="@style/TextAppearance.AppCompat.Body1"
-        android:textSize="22sp"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_m_clock"
-        app:layout_constraintEnd_toStartOf="@+id/tv_m_clock"
-        app:layout_constraintTop_toTopOf="@+id/tv_m_clock" />
-
 </androidx.constraintlayout.widget.ConstraintLayout>
