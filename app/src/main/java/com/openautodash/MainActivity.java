@@ -20,13 +20,10 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
-import android.graphics.ColorSpace;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.location.Address;
-import android.location.Geocoder;
 import android.location.Location;
 import android.net.Uri;
 import android.net.wifi.WifiInfo;
@@ -35,10 +32,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.provider.Settings;
-import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.util.Xml;
 import android.view.Display;
 import android.view.MenuItem;
 import android.view.View;
@@ -47,42 +42,19 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.android.volley.AuthFailureError;
-import com.android.volley.Request;
-import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.JsonObjectRequest;
-import com.android.volley.toolbox.StringRequest;
-import com.android.volley.toolbox.Volley;
-import com.google.android.gms.maps.model.LatLng;
 import com.openautodash.enums.Units;
+import com.openautodash.interfaces.WeatherUpdateCallback;
+import com.openautodash.object.Weather;
 import com.openautodash.services.MainForegroundService;
 import com.openautodash.ui.MapFragment;
 import com.openautodash.ui.TelemetryFragment;
 import com.openautodash.utilities.ModemInfo;
-import com.openautodash.utilities.Weather;
+import com.openautodash.utilities.WeatherManager;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.w3c.dom.Document;
-import org.xml.sax.InputSource;
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-
-import java.io.IOException;
-import java.io.StringReader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements WeatherUpdateCallback {
     private static final String TAG = "MainActivity";
 
     //Permission request codes
@@ -96,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
     //Views
     private TextView clock;
     private TextView temp;
+    private ImageView windDirection;
     private ImageView bluetoothStatusIcon;
     private ImageView lteStatusView;
     private View bottomNavBar;
@@ -117,7 +90,7 @@ public class MainActivity extends AppCompatActivity {
     private SensorEventListener sensorEventListenerLight;
     private final SimpleDateFormat clockTime = new SimpleDateFormat("h:mm a");
 
-    private Weather weather;
+    private WeatherManager weatherManager;
     private Location currentLocation;
     private Location lastWeatherUpdateLocation;
 
@@ -148,6 +121,7 @@ public class MainActivity extends AppCompatActivity {
         // Init views
         clock = findViewById(R.id.tv_m_clock);
         temp = findViewById(R.id.tv_main_temp);
+        windDirection = findViewById(R.id.iv_m_wind_dir);
         bluetoothStatusIcon = findViewById(R.id.iv_m_bluetooth_status);
         lteStatusView = findViewById(R.id.iv_main_lte_signal);
 
@@ -157,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Create a ViewModel instance in the activity scope
         liveDataViewModel = new ViewModelProvider(this).get(LiveDataViewModel.class);
-        weather = new Weather(this);
+        weatherManager = new WeatherManager(this, currentLocation, this);
         modemInfo = new ModemInfo(this);
         wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
 
@@ -206,7 +180,7 @@ public class MainActivity extends AppCompatActivity {
         startAndConnectMainService();
 
         clock.setText(clockTime.format(new Date()));
-//        temp.setText(weather.getCurrentTemp(currentLocation, Units.Metric));
+//        temp.setText(weatherManager.getCurrentTemp(currentLocation, Units.Metric));
 
 
         if (clockReceiver == null) {
@@ -251,7 +225,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private ServiceConnection serviceConnection = new ServiceConnection() {
+    private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder binder) {
             MainForegroundService.MainForegroundServiceBinder mainForegroundServiceBinder = (MainForegroundService.MainForegroundServiceBinder) binder;
@@ -261,31 +235,7 @@ public class MainActivity extends AppCompatActivity {
                 liveDataViewModel.setLocation(location);
                 currentLocation = location;
 
-                //Check weather?
-                if(lastWeatherUpdateLocation != null){
-                    if(lastWeatherUpdateLocation.distanceTo(currentLocation) > 5000){
-                        Geocoder gcd = new Geocoder(getApplicationContext(), Locale.getDefault());
-                        List<Address> addresses = null;
-                        try {
-                            addresses = gcd.getFromLocation(currentLocation.getLatitude(), currentLocation.getLongitude(), 1);
-                        } catch (IOException ignored) {
-
-                        }
-
-                        if (addresses.size() > 0)
-                        {
-                            String countryName=addresses.get(0).getCountryCode();
-                            Log.d(TAG, "onServiceConnected: Country " + countryName);
-                        }
-                        setWeather();
-                        lastWeatherUpdateLocation = currentLocation;
-                        Log.d(TAG, "onServiceConnected: Updated weather.");
-                    }
-                }
-                else{
-                    lastWeatherUpdateLocation = currentLocation;
-                }
-
+                setWeather();
                 Log.d(TAG, String.format("onServiceConnected: lat: %f, lng: %f ", location.getLatitude(), location.getLongitude()));
             });
         }
@@ -399,11 +349,29 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void updateTemp(View view) {
-        setWeather();
     }
 
     public void setWeather(){
-        temp.setText(weather.getCurrentTemp(currentLocation, Units.Metric));
+        weatherManager.getCurrentWeather(currentLocation);
+    }
+
+    @Override
+    public void onComplete(Weather weather) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                weatherManager.syncWeather();
+                temp.setText(String.valueOf(weather.getTemp()));
+
+                float relativeAngle = (float)weather.getWindDeg() - currentLocation.getBearing();
+                if (relativeAngle < 0) {
+                    relativeAngle += 360;
+                } else if (relativeAngle > 360) {
+                    relativeAngle -= 360;
+                }
+                windDirection.setRotation(relativeAngle);
+            }
+        });
     }
 
     private void updateLayoutWidth() {

@@ -92,7 +92,6 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="16dp"
-        android:rotation="90"
         app:layout_constraintBottom_toBottomOf="@+id/tv_main_temp"
         app:layout_constraintEnd_toStartOf="@+id/tv_main_temp"
         app:layout_constraintTop_toTopOf="@+id/tv_main_temp"

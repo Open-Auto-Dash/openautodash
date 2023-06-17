@@ -186,7 +186,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                 Log.d(TAG, "onMapReady: Night Mode OFf");
                 boolean success = googleMap.setMapStyle(
                         MapStyleOptions.loadRawResourceStyle(
-                                getContext(), R.raw.map_day_tesla_style));
+                                getContext(), R.raw.map_day_white_style));
 
                 if (!success) {
                     Log.e(TAG, "Style parsing failed.");

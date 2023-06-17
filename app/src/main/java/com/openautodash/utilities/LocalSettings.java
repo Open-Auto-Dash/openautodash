@@ -2,6 +2,7 @@ package com.openautodash.utilities;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 import com.google.gson.Gson;
 import com.openautodash.R;
@@ -51,6 +52,14 @@ public class LocalSettings {
     }
 
     public double getSpeedUnits(){
-        return Double.parseDouble(preferences.getString("speedUnits", "3.6"));
+        return Double.parseDouble(preferences.getString("weatherUnits", "3.6"));
+    }
+
+    public void setWeatherUnits(Units units){
+        editor.putString("speedUnits", String.valueOf(units));
+    }
+
+    public Units getWeatherUnits(){
+        return Units.valueOf(preferences.getString("weatherUnits", "Metric"));
     }
 }
