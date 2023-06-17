@@ -6,7 +6,7 @@ This app is intended for use in a vehicle as a replacement or adition to the exi
 
 ## Features
 - Phone Key <br>
-Yup, you can... ah will be able to use your android phone as a key to start and operate your car. An ignition spoofing device is required such as the all famouse [EvoAll](https://fortin.ca/en/products/evo-series/evo-all/). (Hopefully soon, not tested and proven yet. The phone app [Open AutoDash client for Android](https://github.com/Open-Auto-Dash/OpenAutoClientAndroid) is also part of the project and will act as authentication, and remote start, control of many vehicle functions. Raise, lower windows, Check location, schedual remote start routines, and so on. So far it is just an empty shell. 🟠 
+Yup, you can... ah will be able to use your android phone as a key to start and operate your car. An ignition spoofing device is required such as the all famous [EvoAll](https://fortin.ca/en/products/evo-series/evo-all/). (Hopefully soon, not tested and proven yet. The phone app [Open AutoDash client for Android](https://github.com/Open-Auto-Dash/OpenAutoClientAndroid) is also part of the project and will act as authentication, and remote start, control of many vehicle functions. Raise, lower windows, Check location, schedual remote start routines, and so on. So far it is just an empty shell. 🟠 
 - Navigation
     - Speed ✅ (GPS Based)
     - Speed Limit ✅ (Overpass API)
@@ -38,7 +38,7 @@ Yup, you can... ah will be able to use your android phone as a key to start and 
 ➕ Requires external pereferal kit.
 
 ## External Pereferal Kit
-An external pereferal kit will be made available once I have the design finalized and working. This will be a circuit board that interfaces with your tablet via USB. Containing the SDR Radios for HAM, GMRS, ADSB. Bluetooth sink radio for handsfree calling. ODB2 interface with the vehicle for telemetry data and who knows what else I or you might think of doing. 
+An external pereferal kit will be made available once I have the design finalized and working. This will be a circuit board that interfaces with your tablet via USB. Containing the SDR Radios for HAM, GMRS, ADSB. Bluetooth sink radio for handsfree calling. OBD2 interface with the vehicle for telemetry data and who knows what else I or you might think of doing. 
 
 ## IT'S OPEN SOURCED 🎉🎊🥳
 Let's band together and make the coolest car infotainment system out there. This project is open sourced and free for anyone to use or reiterate as they please. 
