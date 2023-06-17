@@ -24,7 +24,6 @@ import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.StrictMode;
-import android.provider.Settings;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -43,11 +42,9 @@ import com.openautodash.utilities.LocalSettings;
 import com.openautodash.utilities.LocationListener;
 
 import static com.openautodash.App.ForegroundService;
-import static com.openautodash.App.VehicleInformation;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 public class MainForegroundService extends Service implements SensorEventListener{
     private static final String TAG = "MainForegroundService";
