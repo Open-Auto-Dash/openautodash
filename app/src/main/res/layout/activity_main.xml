@@ -21,11 +21,11 @@
     <RelativeLayout
         android:id="@+id/menuContainer"
         android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_height="400dp"
         android:visibility="invisible"
         app:layout_constraintBottom_toTopOf="@+id/bottomNavBarContainer"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="@+id/fragmentRightContainer">
+        app:layout_constraintStart_toStartOf="@+id/fragmentRightContainer"/>
 
 
     <RelativeLayout

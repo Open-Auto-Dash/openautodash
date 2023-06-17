@@ -1,5 +1,6 @@
 package com.openautodash;
 
+import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
@@ -8,6 +9,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.Manifest;
 import android.app.ActivityManager;
@@ -35,24 +37,29 @@ import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
+import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.openautodash.adapters.MenuAdapter;
 import com.openautodash.enums.Units;
 import com.openautodash.interfaces.WeatherUpdateCallback;
 import com.openautodash.object.Weather;
 import com.openautodash.services.MainForegroundService;
 import com.openautodash.ui.MapFragment;
+import com.openautodash.ui.MenuFragment;
 import com.openautodash.ui.TelemetryFragment;
 import com.openautodash.utilities.ModemInfo;
 import com.openautodash.utilities.WeatherManager;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements WeatherUpdateCallback {
     private static final String TAG = "MainActivity";
@@ -77,7 +84,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     //Fragments...........................
     Fragment fragmentRight;
     Fragment fragmentLeft;
-    MenuItem menuItem;
+    Fragment fragmentMenu;
 
     // Service
     private MainForegroundService mainForegroundService;
@@ -110,12 +117,16 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         setContentView(R.layout.activity_main);
         fragmentRight = new MapFragment();
         fragmentLeft = new TelemetryFragment();
+        fragmentMenu = new MenuFragment();
 
         getSupportFragmentManager()
                 .beginTransaction().replace(R.id.fragmentRightContainer, fragmentRight)
                 .commit();
         getSupportFragmentManager()
                 .beginTransaction().replace(R.id.fragmentLeftContainer, fragmentLeft)
+                .commit();
+        getSupportFragmentManager()
+                .beginTransaction().replace(R.id.menuContainer, fragmentMenu)
                 .commit();
 
         // Init views
@@ -435,6 +446,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         };
         sensorManager.registerListener(sensorEventListenerLight, sensorLight, SensorManager.SENSOR_DELAY_NORMAL);
     }
+
 
     void setBrightness(int brightness) {
         // Get the current window attributes

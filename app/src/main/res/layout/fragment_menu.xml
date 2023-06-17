@@ -4,12 +4,13 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    tools:context=".ui.MenuFragment"
     android:background="@drawable/background_menu"
     android:paddingTop="20dp">
 
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/menu_items"
+        android:id="@+id/rv_menu_items"
         android:layout_width="200dp"
         android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -23,8 +24,19 @@
         android:layout_marginStart="2dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/menu_items"
+        app:layout_constraintStart_toEndOf="@+id/rv_menu_items"
         app:layout_constraintTop_toTopOf="parent">
 
     </FrameLayout>
+
+    <View
+        android:id="@+id/divider4"
+        android:layout_width="100dp"
+        android:layout_height="3dp"
+        android:layout_marginTop="15dp"
+        android:background="@color/colorSemiLight"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
