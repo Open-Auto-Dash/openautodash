@@ -4,9 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.MenuFragment"
-    android:background="@drawable/background_menu"
-    android:paddingTop="20dp">
+    android:background="@color/colorBackgroundDefault"
+    tools:context=".ui.MenuFragment">
 
 
     <androidx.recyclerview.widget.RecyclerView
@@ -28,15 +27,5 @@
         app:layout_constraintTop_toTopOf="parent">
 
     </FrameLayout>
-
-    <View
-        android:id="@+id/divider4"
-        android:layout_width="100dp"
-        android:layout_height="3dp"
-        android:layout_marginTop="15dp"
-        android:background="@color/colorSemiLight"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

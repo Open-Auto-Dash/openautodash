@@ -42,6 +42,9 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.MenuItemViewHo
         MenuItem menuItem = menuItems.get(position);
         holder.icon.setImageDrawable(menuItem.getIcon());
         holder.title.setText(menuItem.getTitle());
+        if(menuItem.isSelected()){
+            holder.itemView.setBackgroundResource(R.color.recyclerViewSelectedColor);
+        }
         holder.bind(menuItem);
     }
 
@@ -70,7 +73,11 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.MenuItemViewHo
         @Override
         public void onClick(View v) {
             int position = getAdapterPosition();
+            for(MenuItem menuItem : menuItems){
+                menuItem.setSelected(false);
+            }
             if (position != RecyclerView.NO_POSITION && listener != null) {
+                menuItems.get(position).setSelected(true);
                 listener.onMenuItemClick(position);
             }
         }

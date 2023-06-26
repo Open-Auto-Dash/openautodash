@@ -9,6 +9,7 @@ public class MenuItem {
     private String title;
     private String description;
     private boolean enabled;
+    private boolean selected;
     private int checked;
 
     public MenuItem(){
@@ -53,6 +54,14 @@ public class MenuItem {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public boolean isSelected() {
+        return selected;
+    }
+
+    public void setSelected(boolean selected) {
+        this.selected = selected;
     }
 
     public int getChecked() {

@@ -2,6 +2,7 @@ package com.openautodash.utilities;
 
 import android.content.Context;
 import android.os.Environment;
+import android.os.Handler;
 import android.util.Log;
 
 import com.openautodash.R;
@@ -9,12 +10,15 @@ import com.openautodash.R;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class LogApp {
     private static final String TAG = "LogApp";
     private Context context;
     private static String filename;
     private String data;
+    Handler handler = new Handler();
 
     public LogApp(Context context){
         this.context = context;
@@ -22,6 +26,10 @@ public class LogApp {
     }
 
     public void Log(String content){
+        Date date = new Date(System.currentTimeMillis());
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy.MMM.dd',' HH:mm:ss");
+        String dateString = formatter.format(date);
+        content = dateString + ": "+ content + "\n";
         writeToFile(filename, content);
     }
 

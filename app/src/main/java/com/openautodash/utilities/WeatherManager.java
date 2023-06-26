@@ -35,13 +35,17 @@ public class WeatherManager {
     private Weather weather;
     OkHttpClient client = new OkHttpClient();
 
+    private LogApp logApp;
+
     public WeatherManager(Context context, Location location, WeatherUpdateCallback callback) {
         this.context = context;
         this.location = location;
         this.callback = callback;
         weather = new Weather();
+        logApp = new LogApp(context);
         localSettings = new LocalSettings(context);
         localSettings.setWeatherUnits(Units.Metric);
+        logApp.Log("Started");
     }
 
     public void getCurrentWeather(Location location) {
@@ -60,7 +64,6 @@ public class WeatherManager {
 
     private boolean shouldRenewData() {
         if (weather.getDate() != null) {
-            Log.d(TAG, "shouldRenewData: Date: " + weather.getDate().getYear());
             long currentTime = System.currentTimeMillis();
             long elapsedTime = currentTime - weather.getDate().getTime();
             long fifteenMinutesInMillis = 15 * 60 * 1000; // 15 minutes in milliseconds
@@ -146,20 +149,12 @@ public class WeatherManager {
                 } catch (
                         IOException e) {
                     e.printStackTrace();
-                    Toast.makeText(context, "Can't get weather", Toast.LENGTH_SHORT).show();
+                    logApp.Log("Can't get weather." + e);
                 }
             }
         });
 
         // Start the thread
         myThread.start();
-    }
-
-    private Location getDefaultLocation() {
-        // Create and return a default Location object
-        Location defaultLocation = new Location("Default");
-        defaultLocation.setLatitude(43);
-        defaultLocation.setLongitude(-80);
-        return defaultLocation;
     }
 }

@@ -53,7 +53,10 @@ public class MenuFragment extends Fragment implements MenuAdapter.OnMenuItemClic
 
         menuItem.setTitle("Menu");
         menuItem.setIcon(getResources().getDrawable(R.drawable.ic_defrost_front));
+        menuItem.setSelected(true);
 
+        menuItemList.add(menuItem);
+        menuItem.setSelected(false);
         menuItemList.add(menuItem);
 
         menuAdapter = new MenuAdapter(getContext(), menuItemList);

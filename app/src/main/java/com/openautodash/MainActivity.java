@@ -218,6 +218,19 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         unBindService();
     }
 
+    public void toggleSettings(View view){
+        if(fragmentMenu.isHidden()){
+            getSupportFragmentManager()
+                    .beginTransaction().show(fragmentMenu)
+                    .commit();
+        }
+        else {
+            getSupportFragmentManager()
+                    .beginTransaction().hide(fragmentMenu)
+                    .commit();
+        }
+    }
+
     public void startAndConnectMainService() {
         Log.d(TAG, "startAndConnectMainService");
         Intent intent = new Intent(getApplicationContext(), MainForegroundService.class);
