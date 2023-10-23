@@ -31,6 +31,8 @@ public class ModemInfo {
     private Context context;
     private String response;
 
+    private RequestQueue requestQueue;
+
     private String ConnectionStatus;
     private String SignalIcon;
     private String CurrentNetworkType;
@@ -51,6 +53,7 @@ public class ModemInfo {
 
     public ModemInfo(Context context) {
         this.context = context;
+        requestQueue = Volley.newRequestQueue(context);
     }
 
     private void setResponse(String response) {
@@ -233,7 +236,6 @@ public class ModemInfo {
                             };
 
                             // Add the signal strength request to the Volley request queue
-                            RequestQueue requestQueue = Volley.newRequestQueue(context);
                             requestQueue.add(signalStrengthRequest);
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -248,7 +250,6 @@ public class ModemInfo {
                 });
 
 // Add the SesTokInfo request to the Volley request queue
-        RequestQueue requestQueue = Volley.newRequestQueue(context);
         requestQueue.add(sesTokInfoRequest);
     }
 
