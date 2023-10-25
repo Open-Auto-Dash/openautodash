@@ -61,6 +61,7 @@ public class MainForegroundService extends Service implements SensorEventListene
     private LocationManager locationManager;
     private LocationListener locationListener;
     private MutableLiveData<Location> locationLiveData = new MutableLiveData<>();
+    private MutableLiveData<Integer> btStatus = new MutableLiveData<>();
 
     private GnssStatus.Callback gnssCallback;
     private GnssStatus gnssStatus;
@@ -70,7 +71,6 @@ public class MainForegroundService extends Service implements SensorEventListene
     // Bluetooth stuff
     private BluetoothManager bluetoothManager;
     private BluetoothAdapter bluetoothAdapter;
-    private int btStatus;
 
 
     //Vehicle State, Security
@@ -160,6 +160,10 @@ public class MainForegroundService extends Service implements SensorEventListene
         return locationLiveData;
     }
 
+    public MutableLiveData<Integer> getBluetoothState() {
+        return btStatus;
+    }
+
     private final Handler handler = new Handler();
     private final Runnable runnable = new Runnable() {
         @Override
@@ -242,7 +246,8 @@ public class MainForegroundService extends Service implements SensorEventListene
             if (action.equals(BluetoothDevice.ACTION_FOUND)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 Log.d(TAG, "onReceive: FOUND DEVICE: " + device.getName() + " with address, " + device.getAddress());
-                if (phoneKeyList != null && phoneKeyList.stream().anyMatch(o -> o.getBluetoothMac().equals(device.getAddress()))) {
+//                if (phoneKeyList != null && phoneKeyList.stream().anyMatch(o -> o.getBluetoothMac().equals(device.getAddress()))) {
+                if(device.getAddress().contains("5C:17:CF:7C:D8:79")){
                     Log.d(TAG, "onReceive: Key was detected");
                     bluetoothAdapter.cancelDiscovery();
                     lastSawKey = System.currentTimeMillis();
@@ -270,10 +275,10 @@ public class MainForegroundService extends Service implements SensorEventListene
 //            Log.d(TAG, "discoverKey: Started Discovery");
         }
         if(System.currentTimeMillis() - lastSawKey < 15000){
-            btStatus = 1;
+            btStatus.setValue(1);
         }
         else{
-            btStatus = 0;
+            btStatus.setValue(0);
         }
 
         Intent intent = new Intent("data_update");

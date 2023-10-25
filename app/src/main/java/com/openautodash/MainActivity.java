@@ -3,11 +3,13 @@ package com.openautodash;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -27,9 +29,11 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
+import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -101,6 +105,8 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     private Location currentLocation;
     private Location lastWeatherUpdateLocation;
 
+    private int currentMenuShowing;
+
     private Handler handler;
     private Runnable runnable;
     private ModemInfo modemInfo;
@@ -124,9 +130,6 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
                 .commit();
         getSupportFragmentManager()
                 .beginTransaction().replace(R.id.fragmentLeftContainer, fragmentLeft)
-                .commit();
-        getSupportFragmentManager()
-                .beginTransaction().replace(R.id.menuContainer, fragmentMenu)
                 .commit();
 
         // Init views
@@ -219,16 +222,22 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     }
 
     public void toggleSettings(View view){
-        if(fragmentMenu.isHidden()){
-            getSupportFragmentManager()
-                    .beginTransaction().show(fragmentMenu)
-                    .commit();
+        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+
+        switch (currentMenuShowing){
+            case 1:
+                // If the menu is showing, remove it by sliding down
+                transaction.setCustomAnimations(R.anim.stay, R.anim.slide_out_bottom);
+                transaction.remove(getSupportFragmentManager().findFragmentById(R.id.menuContainer));
+                currentMenuShowing = 0;
+                break;
+            default:
+                transaction.setCustomAnimations(R.anim.slide_in_bottom, R.anim.stay);
+                transaction.replace(R.id.menuContainer, new MenuFragment());
+                currentMenuShowing = 1;
+                break;
         }
-        else {
-            getSupportFragmentManager()
-                    .beginTransaction().hide(fragmentMenu)
-                    .commit();
-        }
+        transaction.commit();
     }
 
     public void startAndConnectMainService() {
@@ -261,6 +270,15 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
 
                 setWeather();
                 Log.d(TAG, String.format("onServiceConnected: lat: %f, lng: %f ", location.getLatitude(), location.getLongitude()));
+            });
+            mainForegroundService.getBluetoothState().observe(MainActivity.this, btStatus ->
+            {
+                if(btStatus == 1){
+                    keepScreenOn(true);
+                }
+                else{
+                    keepScreenOn(false);
+                }
             });
         }
 
@@ -318,7 +336,12 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
                     }
                 }
                 else{
-                    lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_wifi_0));
+                    if(isInternetConnected(getApplicationContext())){
+                        lteStatusView.setImageDrawable(AppCompatResources.getDrawable(getApplicationContext(), R.drawable.signal_wifi_1));
+                    }
+                    else {
+                        lteStatusView.setImageDrawable(AppCompatResources.getDrawable(getApplicationContext(), R.drawable.signal_wifi_0));
+                    }
                 }
                 handler.postDelayed(this, 5000); // 5000 milliseconds = 5 seconds
             }
@@ -426,6 +449,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
 
     void keepScreenOn(boolean on) {
         //Keep screen on call the time.
+        Log.d(TAG, "keepScreenOn: " + on);
         if (on) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         } else {
@@ -478,5 +502,10 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
             }
         }
         return false;
+    }
+
+    public static boolean isInternetConnected(Context context) {
+        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        return cm.getActiveNetwork() != null && cm.getNetworkCapabilities(cm.getActiveNetwork()) != null;
     }
 }

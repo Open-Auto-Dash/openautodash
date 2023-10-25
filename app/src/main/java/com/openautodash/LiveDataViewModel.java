@@ -21,7 +21,7 @@ public class LiveDataViewModel extends AndroidViewModel {
     private LiveData<List<TelemetryLog>> telemetryLogs;
     private MutableLiveData<Location> locationData = new MutableLiveData<>();
 
-    public LiveDataViewModel(@NonNull Application application) {
+    public LiveDataViewModel(Application application) {
         super(application);
         databaseRepository = new DatabaseRepository(application);
         telemetryLogs = databaseRepository.getTelemetryLogs();
