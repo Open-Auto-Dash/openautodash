@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.Dialog;
 import android.content.BroadcastReceiver;
@@ -37,6 +38,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -45,6 +47,7 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -120,6 +123,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d(TAG, "onCreate");
+        turnScreenOn(this);
         setContentView(R.layout.activity_main);
         fragmentRight = new MapFragment();
         fragmentLeft = new TelemetryFragment();
@@ -274,9 +278,11 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
             mainForegroundService.getBluetoothState().observe(MainActivity.this, btStatus ->
             {
                 if(btStatus == 1){
+                    bluetoothStatusIcon.setImageDrawable(AppCompatResources.getDrawable(getApplicationContext(), R.drawable.ic_bluetooth_nearby));
                     keepScreenOn(true);
                 }
                 else{
+                    bluetoothStatusIcon.setImageDrawable(AppCompatResources.getDrawable(getApplicationContext(), R.drawable.ic_bluetooth));
                     keepScreenOn(false);
                 }
             });
@@ -408,7 +414,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
             @Override
             public void run() {
                 weatherManager.syncWeather();
-                temp.setText(String.valueOf(weather.getTemp()));
+                temp.setText(weather.getTemp() + "°C");
 
                 float relativeAngle = (float)weather.getWindDeg() - currentLocation.getBearing();
                 if (relativeAngle < 0) {
@@ -451,10 +457,15 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         //Keep screen on call the time.
         Log.d(TAG, "keepScreenOn: " + on);
         if (on) {
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
         } else {
             getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
+    }
+
+    public void turnScreenOn(Activity activity) {
+        Window window = activity.getWindow();
+        window.addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
     }
 
 
@@ -507,5 +518,14 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     public static boolean isInternetConnected(Context context) {
         ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         return cm.getActiveNetwork() != null && cm.getNetworkCapabilities(cm.getActiveNetwork()) != null;
+    }
+
+    public void wakeUpDevice(Context context) {
+        PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        PowerManager.WakeLock wakeLock = powerManager.newWakeLock(PowerManager.FULL_WAKE_LOCK |
+                PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE, "MyApp::WakeLockTag");
+
+        // Release the wake lock after a certain period. You might want to adjust this.
+        wakeLock.release();
     }
 }

@@ -2,6 +2,7 @@ package com.openautodash.services;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -25,6 +26,8 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.StrictMode;
 import android.util.Log;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -61,7 +64,6 @@ public class MainForegroundService extends Service implements SensorEventListene
     private LocationManager locationManager;
     private LocationListener locationListener;
     private MutableLiveData<Location> locationLiveData = new MutableLiveData<>();
-    private MutableLiveData<Integer> btStatus = new MutableLiveData<>();
 
     private GnssStatus.Callback gnssCallback;
     private GnssStatus gnssStatus;
@@ -71,7 +73,8 @@ public class MainForegroundService extends Service implements SensorEventListene
     // Bluetooth stuff
     private BluetoothManager bluetoothManager;
     private BluetoothAdapter bluetoothAdapter;
-
+    private MutableLiveData<Integer> keyVisible = new MutableLiveData<>();
+    private boolean btStatus;
 
     //Vehicle State, Security
     private VehicleState vehicleState;
@@ -161,7 +164,7 @@ public class MainForegroundService extends Service implements SensorEventListene
     }
 
     public MutableLiveData<Integer> getBluetoothState() {
-        return btStatus;
+        return keyVisible;
     }
 
     private final Handler handler = new Handler();
@@ -274,11 +277,18 @@ public class MainForegroundService extends Service implements SensorEventListene
             bluetoothAdapter.startDiscovery();
 //            Log.d(TAG, "discoverKey: Started Discovery");
         }
-        if(System.currentTimeMillis() - lastSawKey < 15000){
-            btStatus.setValue(1);
+        if(System.currentTimeMillis() - lastSawKey < 25000){
+            if(!btStatus){
+                btStatus = true;
+                keyVisible.setValue(1);
+                wakeUpDevice();
+            }
         }
         else{
-            btStatus.setValue(0);
+            if(btStatus){
+                btStatus = false;
+                keyVisible.setValue(0);
+            }
         }
 
         Intent intent = new Intent("data_update");
@@ -305,6 +315,15 @@ public class MainForegroundService extends Service implements SensorEventListene
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {
 
+    }
+
+// In your foreground service:
+
+    public void wakeUpDevice() {
+        Log.d(TAG, "wakeUpDevice");
+        Intent wakeIntent = new Intent(this, MainActivity.class);
+        wakeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(wakeIntent);
     }
 
     public static double round(double value, int places) {
