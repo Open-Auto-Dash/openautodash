@@ -294,15 +294,6 @@
                     app:srcCompat="@drawable/ic_defrost_front" />
 
                 <ImageView
-                    android:id="@+id/iv_bottom_nav_bar_vol"
-                    android:layout_width="0dp"
-                    android:layout_height="100dp"
-                    android:padding="32dp"
-                    app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
-                    app:layout_constraintEnd_toEndOf="@+id/bottomNavBar"
-                    app:srcCompat="@drawable/ic_sound_3" />
-
-                <ImageView
                     android:id="@+id/iv_bottom_nav_bar_vol_up"
                     android:layout_width="0dp"
                     android:layout_height="0dp"
@@ -310,9 +301,10 @@
                     android:paddingBottom="30dp"
                     app:layout_constraintBottom_toTopOf="@+id/iv_bottom_nav_bar_vol_down"
                     app:layout_constraintEnd_toEndOf="@+id/bottomNavBar"
-                    app:layout_constraintHorizontal_bias="0.5"
+                    app:layout_constraintHorizontal_bias="0.0"
                     app:layout_constraintStart_toStartOf="@+id/iv_bottom_nav_bar_vol"
                     app:layout_constraintTop_toTopOf="@id/bottomNavBar"
+                    android:background="@drawable/bg_glow_effect"
                     app:srcCompat="@drawable/ic_arrow_up" />
 
                 <ImageView
@@ -326,7 +318,17 @@
                     app:layout_constraintHorizontal_bias="0.5"
                     app:layout_constraintStart_toStartOf="@+id/iv_bottom_nav_bar_vol"
                     app:layout_constraintTop_toBottomOf="@+id/iv_bottom_nav_bar_vol_up"
+                    android:background="@drawable/bg_glow_effect"
                     app:srcCompat="@drawable/ic_arrow_down" />
+
+                <ImageView
+                    android:id="@+id/iv_bottom_nav_bar_vol"
+                    android:layout_width="0dp"
+                    android:layout_height="100dp"
+                    android:padding="32dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
+                    app:layout_constraintEnd_toEndOf="@+id/bottomNavBar"
+                    app:srcCompat="@drawable/ic_sound_3" />
 
             </androidx.constraintlayout.widget.ConstraintLayout>
     </HorizontalScrollView>

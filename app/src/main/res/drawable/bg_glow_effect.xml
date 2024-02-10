@@ -1,0 +1,17 @@
+<!-- res/drawable/bg_glow_effect.xml -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Pressed state -->
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#2E2E2E"/> <!-- Grey color for the glow effect -->
+            <corners android:radius="10dp"/> <!-- Optional: Adjust the corner radius -->
+            <padding android:left="10dp" android:top="10dp" android:right="10dp" android:bottom="10dp"/>
+        </shape>
+    </item>
+    <!-- Default state -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent"/> <!-- Transparent color -->
+        </shape>
+    </item>
+</selector>

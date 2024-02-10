@@ -30,6 +30,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
+import android.media.AudioManager;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.net.wifi.WifiInfo;
@@ -49,6 +50,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -87,6 +89,21 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     private ImageView lteStatusView;
     private TextView lteNetworkType;
     private View bottomNavBar;
+
+    //Bottom Menu Buttons
+    private ImageView menuMusic;
+    private ImageView menuSeatLeft;
+    private ImageView menuTempLeftUp;
+    private ImageView menuTempLeftDown;
+    private ImageView menuFan;
+    private ImageView menuTempRightUp;
+    private ImageView menuTempRightDown;
+    private ImageView menuSeatRight;
+    private ImageView menuDefrost;
+    private ImageView menuVolUp;
+    private ImageView menuVolDown;
+
+
 
 
     //Fragments...........................
@@ -178,14 +195,75 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         }
 
         if (systemWritePermissionCheck()) {
-//            calculateScreenBrightness();
+            calculateScreenBrightness();
         }
 
-
         ///////////////
+
+        menuMusic = findViewById(R.id.iv_bottom_nav_bar_music);
+        menuSeatLeft = findViewById(R.id.iv_bottom_nav_bar_left_seat_heater);
+        menuTempLeftUp = findViewById(R.id.iv_bottom_nav_bar_left_temp_up);
+        menuTempLeftDown = findViewById(R.id.iv_bottom_nav_bar_left_temp_down);
+        menuFan = findViewById(R.id.iv_bottom_nav_bar_fan_setting_icon);
+        menuTempRightUp = findViewById(R.id.iv_bottom_nav_bar_right_temp_up);
+        menuTempRightDown = findViewById(R.id.iv_bottom_nav_bar_right_temp_down);
+        menuSeatRight = findViewById(R.id.iv_bottom_nav_bar_right_seat_heater);
+        menuDefrost = findViewById(R.id.iv_bottom_nav_bar_defrost);
+        menuVolUp = findViewById(R.id.iv_bottom_nav_bar_vol_up);
+        menuVolDown = findViewById(R.id.iv_bottom_nav_bar_vol_down);
+
         startSignalStrengthUpdates();
 
+        menuMusic.setOnClickListener(v -> {
 
+        });
+        menuSeatLeft.setOnClickListener(v -> {
+
+        });
+        menuTempLeftUp.setOnClickListener(v -> {
+
+        });
+        menuTempLeftDown.setOnClickListener(v -> {
+
+        });
+        menuFan.setOnClickListener(v -> {
+
+        });
+        menuTempRightUp.setOnClickListener(v -> {
+
+        });
+        menuTempRightDown.setOnClickListener(v -> {
+
+        });
+        menuSeatRight.setOnClickListener(v -> {
+
+        });
+        menuDefrost.setOnClickListener(v -> {
+
+        });
+        menuVolUp.setOnClickListener(v -> {
+            setVolume(AudioManager.ADJUST_RAISE);
+        });
+        menuVolDown.setOnClickListener(v -> {
+            setVolume(AudioManager.ADJUST_LOWER);
+        });
+
+
+    }
+
+    private void setVolume(int dir){
+        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+
+        switch (dir){
+            case AudioManager.ADJUST_RAISE:
+                audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI);
+                break;
+            case AudioManager.ADJUST_LOWER:
+                audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI);
+                break;
+            default:
+                break;
+        }
     }
 
     @Override
