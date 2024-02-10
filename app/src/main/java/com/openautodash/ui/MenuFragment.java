@@ -1,11 +1,13 @@
 package com.openautodash.ui;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -50,14 +52,7 @@ public class MenuFragment extends Fragment implements MenuAdapter.OnMenuItemClic
         menuContainer =view.findViewById(R.id.layout_menu_content);
 
         MenuItem menuItem = new MenuItem();
-
-        menuItem.setTitle("Menu");
-        menuItem.setIcon(getResources().getDrawable(R.drawable.ic_defrost_front));
-        menuItem.setSelected(true);
-
-        menuItemList.add(menuItem);
-        menuItem.setSelected(false);
-        menuItemList.add(menuItem);
+        menuItemList = menuItem.initMenu(getContext());
 
         menuAdapter = new MenuAdapter(getContext(), menuItemList);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getContext());

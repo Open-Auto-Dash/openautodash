@@ -24,7 +24,9 @@ import android.location.LocationManager;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.os.StrictMode;
+import android.text.format.Time;
 import android.util.Log;
 import android.view.Window;
 import android.view.WindowManager;
@@ -47,6 +49,7 @@ import com.openautodash.utilities.LocationListener;
 import static com.openautodash.App.ForegroundService;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 public class MainForegroundService extends Service implements SensorEventListener{
@@ -281,12 +284,14 @@ public class MainForegroundService extends Service implements SensorEventListene
             if(!btStatus){
                 btStatus = true;
                 keyVisible.setValue(1);
+                setLocationListener(1000, 0);
                 wakeUpDevice();
             }
         }
         else{
             if(btStatus){
                 btStatus = false;
+                setLocationListener((60000 * 15), 10);
                 keyVisible.setValue(0);
             }
         }
@@ -320,11 +325,19 @@ public class MainForegroundService extends Service implements SensorEventListene
 // In your foreground service:
 
     public void wakeUpDevice() {
-        Log.d(TAG, "wakeUpDevice");
-        Intent wakeIntent = new Intent(this, MainActivity.class);
-        wakeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(wakeIntent);
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+
+        if (powerManager != null && !powerManager.isInteractive()) {
+            Log.d(TAG, "wakeUpDevice");
+            Intent wakeIntent = new Intent(this, MainActivity.class);
+            wakeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(wakeIntent);
+        } else {
+            Log.d(TAG, "Device already awake");
+        }
     }
+
+
 
     public static double round(double value, int places) {
         if (places < 0) throw new IllegalArgumentException();

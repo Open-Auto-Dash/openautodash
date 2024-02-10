@@ -74,6 +74,16 @@
         app:layout_constraintTop_toTopOf="parent"
         app:srcCompat="@drawable/ic_bluetooth" />
 
+    <TextView
+        android:id="@+id/tv_main_signal_network_type"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:text="3G"
+        android:textSize="11sp"
+        app:layout_constraintStart_toStartOf="@+id/iv_main_lte_signal"
+        app:layout_constraintTop_toTopOf="@+id/iv_main_lte_signal" />
+
     <ImageView
         android:id="@+id/iv_main_lte_signal"
         android:layout_width="60dp"

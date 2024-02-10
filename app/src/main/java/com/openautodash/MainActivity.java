@@ -85,6 +85,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     private ImageView windDirection;
     private ImageView bluetoothStatusIcon;
     private ImageView lteStatusView;
+    private TextView lteNetworkType;
     private View bottomNavBar;
 
 
@@ -142,6 +143,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         windDirection = findViewById(R.id.iv_m_wind_dir);
         bluetoothStatusIcon = findViewById(R.id.iv_m_bluetooth_status);
         lteStatusView = findViewById(R.id.iv_main_lte_signal);
+        lteNetworkType = findViewById(R.id.tv_main_signal_network_type);
 
         bottomNavBar = findViewById(R.id.bottomNavBar);
         updateLayoutWidth();
@@ -315,11 +317,38 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
                 wifiInfo = wifiManager.getConnectionInfo();
                 if (wifiInfo.getSSID().contains("My Fusion")) {
                     modemInfo.updateInfo();
+                    if(modemInfo.getCurrentNetworkType() != null){
+                        int type = Integer.parseInt(modemInfo.getCurrentNetworkType());
+                        switch (type){
+                            case 0:
+                                lteNetworkType.setText("");
+                                break;
+                            case 1:
+                            case 2:
+                                lteNetworkType.setText("2G");
+                                break;
+                            case 3:
+                            case 4:
+                            case 5:
+                            case 6:
+                                lteNetworkType.setText("3G");
+                                break;
+                            case 7:
+                                lteNetworkType.setText("3G+");
+                                break;
+                            case 8:
+                            case 9:
+                                lteNetworkType.setText("4G");
+                                break;
+                            case 19:
+                                lteNetworkType.setText("LTE");
+                                break;
+                            default:
+                                lteNetworkType.setText("D" + type);
+                        }
+                    }
                     if (modemInfo.getSignalIcon() != null) {
                         switch (Integer.parseInt(modemInfo.getSignalIcon())) {
-                            case 0:
-                                lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_0));
-                                break;
                             case 1:
                                 lteStatusView.setImageDrawable(getResources().getDrawable(R.drawable.signal_lte_1));
                                 break;

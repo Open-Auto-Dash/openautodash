@@ -1,7 +1,16 @@
 package com.openautodash.object;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
+
+import androidx.appcompat.content.res.AppCompatResources;
+
+import com.openautodash.App;
+import com.openautodash.R;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MenuItem {
     private Intent intent;
@@ -70,5 +79,22 @@ public class MenuItem {
 
     public void setChecked(int checked) {
         this.checked = checked;
+    }
+
+    public List<MenuItem> initMenu(Context context){
+        List<MenuItem> menuItems = new ArrayList<>();
+        String[] title = {"Controls", "Auto Pilot"};
+        ArrayList<Drawable> icons = new ArrayList<>();
+
+        icons.add(AppCompatResources.getDrawable(context, R.drawable.ic_menu_controls));
+        icons.add(AppCompatResources.getDrawable(context, R.drawable.ic_bluetooth_nearby));
+
+        for(int i = 0; i < title.length; i++){
+            MenuItem menuItem = new MenuItem();
+            menuItem.setTitle(title[i]);
+            menuItem.setIcon(icons.get(i));
+            menuItems.add(menuItem);
+        }
+        return menuItems;
     }
 }
