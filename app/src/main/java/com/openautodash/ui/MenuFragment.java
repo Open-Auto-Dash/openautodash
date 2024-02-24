@@ -6,9 +6,12 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.Toast;
 
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -55,6 +58,7 @@ public class MenuFragment extends Fragment implements MenuAdapter.OnMenuItemClic
         menuItemList = menuItem.initMenu(getContext());
 
         menuAdapter = new MenuAdapter(getContext(), menuItemList);
+        menuAdapter.setOnMenuItemClickListener(this); // Set the listener
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getContext());
         menuRecyclerView.setLayoutManager(layoutManager);
         menuRecyclerView.setItemAnimator(new DefaultItemAnimator());
@@ -66,10 +70,25 @@ public class MenuFragment extends Fragment implements MenuAdapter.OnMenuItemClic
     @Override
     public void onResume() {
         super.onResume();
+        MenuItem item = menuItemList.get(0);
+        item.setSelected(true);
+        loadChildFragment(item.getFragment());
+        menuAdapter.notifyDataSetChanged();
     }
 
     @Override
     public void onMenuItemClick(int position) {
-
+        loadChildFragment(menuItemList.get(position).getFragment());
     }
+
+    private void loadChildFragment(Fragment fragment) {
+
+        // Perform the fragment transaction to add/replace the child fragment in the container
+        FragmentManager fragmentManager = getChildFragmentManager(); // Use getChildFragmentManager() to manage fragments within a fragment
+        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
+
+        fragmentTransaction.replace(R.id.layout_menu_content, fragment);
+        fragmentTransaction.commit();
+    }
+
 }

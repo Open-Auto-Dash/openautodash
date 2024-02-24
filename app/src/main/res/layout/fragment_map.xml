@@ -36,28 +36,29 @@
         android:id="@+id/iv_map_traffic"
         android:layout_width="55dp"
         android:layout_height="55dp"
-        android:layout_marginTop="32dp"
         android:layout_marginEnd="16dp"
+        android:layout_marginBottom="120dp"
         android:src="@drawable/img_map_traffic"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/iv_map_type" />
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <ImageView
         android:id="@+id/iv_map_type"
         android:layout_width="55dp"
         android:layout_height="55dp"
-        android:layout_marginTop="76dp"
         android:layout_marginEnd="16dp"
+        android:layout_marginBottom="32dp"
         android:src="@drawable/img_map_standard"
         app:circularflow_radiusInDP="34dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintBottom_toTopOf="@+id/iv_map_traffic"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <EditText
         android:id="@+id/editTextTextPersonName"
         android:layout_width="300dp"
         android:layout_height="50dp"
         android:layout_marginStart="16dp"
+        android:layout_marginTop="72dp"
         android:background="@drawable/background_edit_text"
         android:ems="10"
         android:hint="Search for places..."
@@ -66,6 +67,6 @@
         android:paddingEnd="15dp"
         android:textSize="20sp"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/iv_map_type" />
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

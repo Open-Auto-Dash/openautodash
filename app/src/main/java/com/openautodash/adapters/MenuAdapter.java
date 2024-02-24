@@ -7,8 +7,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.gson.Gson;
@@ -42,9 +44,13 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.MenuItemViewHo
         MenuItem menuItem = menuItems.get(position);
         holder.icon.setImageDrawable(menuItem.getIcon());
         holder.title.setText(menuItem.getTitle());
-        if(menuItem.isSelected()){
-            holder.itemView.setBackgroundResource(R.color.recyclerViewSelectedColor);
+
+        if (menuItem.isSelected()) {
+            holder.itemView.setBackground(ContextCompat.getDrawable(context, R.drawable.background_menu_selected)); // Use a light grey color
+        } else {
+            holder.itemView.setBackground(null); // Use transparent or another color
         }
+
         holder.bind(menuItem);
     }
 
@@ -80,10 +86,15 @@ public class MenuAdapter extends RecyclerView.Adapter<MenuAdapter.MenuItemViewHo
                 menuItems.get(position).setSelected(true);
                 listener.onMenuItemClick(position);
             }
+            notifyDataSetChanged();
         }
     }
 
     public interface OnMenuItemClickListener {
         void onMenuItemClick(int position);
+    }
+
+    public void setOnMenuItemClickListener(OnMenuItemClickListener listener) {
+        this.listener = listener;
     }
 }

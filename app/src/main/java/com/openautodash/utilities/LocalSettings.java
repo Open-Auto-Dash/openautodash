@@ -28,7 +28,7 @@ public class LocalSettings {
         editor.putString("vehicle_id", vehicleId);
     }
     public String getVehicleId(){
-        return preferences.getString("vehicle_id", "0000");
+        return preferences.getString("vehicle_id", "100000001");
     }
 
     public void setPhoneKey(PhoneKey phoneKey){
@@ -47,8 +47,35 @@ public class LocalSettings {
         return null;
     }
 
+    public void setNightModeSetPoint(int value){
+        editor.putInt("nightModeSetPoint", value).commit();
+    }
+
+    public int getNightModeSetPoint(){
+        return preferences.getInt("nightModeSetPoint", 0);
+    }
+
+    public void setBrightnessSetting(int[] values){
+        String setting = Arrays.toString(values);
+        editor.putString("brightnessSetting", setting).commit();
+    }
+
+    public int[] getBrightnessSetting(){
+        String setting = preferences.getString("brightnessSetting", "[0, 0, 0, 0, 0, 0]");
+
+        setting = setting.substring(1, setting.length() - 1);
+        String[] stringArray = setting.split(", ");
+
+        // Step 3: Convert each string in the array back into an integer
+        int[] intArray = new int[stringArray.length];
+        for (int i = 0; i < stringArray.length; i++) {
+            intArray[i] = Integer.parseInt(stringArray[i]);
+        }
+        return intArray;
+    }
+
     public void setSpeedUnits(Units units){
-        editor.putString("speedUnits", String.valueOf(units));
+        editor.putString("speedUnits", String.valueOf(units)).commit();
     }
 
     public double getSpeedUnits(){
@@ -56,7 +83,7 @@ public class LocalSettings {
     }
 
     public void setWeatherUnits(Units units){
-        editor.putString("speedUnits", String.valueOf(units));
+        editor.putString("speedUnits", String.valueOf(units)).commit();
     }
 
     public Units getWeatherUnits(){

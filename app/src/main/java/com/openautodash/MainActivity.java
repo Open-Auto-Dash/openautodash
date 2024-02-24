@@ -3,6 +3,7 @@ package com.openautodash;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
@@ -29,6 +30,11 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbDeviceConnection;
+import android.hardware.usb.UsbEndpoint;
+import android.hardware.usb.UsbInterface;
+import android.hardware.usb.UsbManager;
 import android.location.Location;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
@@ -63,11 +69,13 @@ import com.openautodash.services.MainForegroundService;
 import com.openautodash.ui.MapFragment;
 import com.openautodash.ui.MenuFragment;
 import com.openautodash.ui.TelemetryFragment;
+import com.openautodash.utilities.LocalSettings;
 import com.openautodash.utilities.ModemInfo;
 import com.openautodash.utilities.WeatherManager;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements WeatherUpdateCallback {
@@ -136,6 +144,13 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
 
     private SensorManager sensorManager;
     private long lastBrightnessTime;
+    public int[] brightnessSetting;
+    private boolean isDarkMode;
+    int darkModeSetting;
+
+    private TextView brightnessCrap;
+
+    private LocalSettings localSettings;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -146,6 +161,8 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         fragmentRight = new MapFragment();
         fragmentLeft = new TelemetryFragment();
         fragmentMenu = new MenuFragment();
+
+        localSettings = new LocalSettings(this);
 
         getSupportFragmentManager()
                 .beginTransaction().replace(R.id.fragmentRightContainer, fragmentRight)
@@ -161,6 +178,8 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         bluetoothStatusIcon = findViewById(R.id.iv_m_bluetooth_status);
         lteStatusView = findViewById(R.id.iv_main_lte_signal);
         lteNetworkType = findViewById(R.id.tv_main_signal_network_type);
+
+        brightnessCrap = findViewById(R.id.brightesscrap);
 
         bottomNavBar = findViewById(R.id.bottomNavBar);
         updateLayoutWidth();
@@ -239,7 +258,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
 
         });
         menuDefrost.setOnClickListener(v -> {
-
+            toggleDarkMode();
         });
         menuVolUp.setOnClickListener(v -> {
             setVolume(AudioManager.ADJUST_RAISE);
@@ -247,7 +266,6 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         menuVolDown.setOnClickListener(v -> {
             setVolume(AudioManager.ADJUST_LOWER);
         });
-
 
     }
 
@@ -265,6 +283,20 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
                 break;
         }
     }
+    public void toggleDarkMode() {
+        if (!isDarkMode) {
+            // Enable dark mode
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+        } else {
+            // Disable dark mode
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+        }
+        isDarkMode = !isDarkMode;
+    }
+
+    private void sendData(){
+
+    }
 
     @Override
     protected void onPause() {
@@ -276,6 +308,8 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     protected void onResume() {
         super.onResume();
         startAndConnectMainService();
+        brightnessSetting = localSettings.getBrightnessSetting();
+        darkModeSetting = localSettings.getNightModeSetPoint();
 
         clock.setText(clockTime.format(new Date()));
 //        temp.setText(weatherManager.getCurrentTemp(currentLocation, Units.Metric));
@@ -587,10 +621,35 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
                 float floatSensorValue = event.values[0]; // lux
                 if (System.currentTimeMillis() - lastBrightnessTime > 1000) {
                     lastBrightnessTime = System.currentTimeMillis();
-                    if (floatSensorValue < 50) {
-                        setBrightness(55);
+
+                    String crapString = (int)floatSensorValue + "br";
+                    brightnessCrap.setText(crapString);
+
+                    Log.d(TAG, "onSensorChanged: BRIGHTNESS: " + floatSensorValue);
+
+                    if (floatSensorValue > 500) {
+                        setBrightness(brightnessSetting[5]);
+                    } else if(floatSensorValue > 400) {
+                        setBrightness(brightnessSetting[4]);
+                    } else if(floatSensorValue > 100) {
+                        setBrightness(brightnessSetting[3]);
+                    } else if(floatSensorValue > 40) {
+                        setBrightness(brightnessSetting[2]);
+                    } else if(floatSensorValue > 10) {
+                        setBrightness(brightnessSetting[1]);
                     } else {
-                        setBrightness(355);
+                        setBrightness(brightnessSetting[0]);
+                    }
+
+                    if(floatSensorValue < darkModeSetting){
+                        if(!isDarkMode){
+                            toggleDarkMode();
+                        }
+                    }
+                    else{
+                        if(isDarkMode){
+                            toggleDarkMode();
+                        }
                     }
                 }
             }
@@ -625,6 +684,10 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     public static boolean isInternetConnected(Context context) {
         ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         return cm.getActiveNetwork() != null && cm.getNetworkCapabilities(cm.getActiveNetwork()) != null;
+    }
+
+    public void setBrightnessSettings(int[] settings){
+        brightnessSetting = settings;
     }
 
     public void wakeUpDevice(Context context) {

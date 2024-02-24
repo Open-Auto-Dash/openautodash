@@ -5,15 +5,20 @@ import android.content.Intent;
 import android.graphics.drawable.Drawable;
 
 import androidx.appcompat.content.res.AppCompatResources;
+import androidx.fragment.app.Fragment;
 
 import com.openautodash.App;
 import com.openautodash.R;
+import com.openautodash.ui.MenuControls;
+import com.openautodash.ui.MenuDisplay;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class MenuItem {
     private Intent intent;
+    private Fragment fragment;
     private Drawable icon;
     private String title;
     private String description;
@@ -31,6 +36,14 @@ public class MenuItem {
 
     public void setIntent(Intent intent) {
         this.intent = intent;
+    }
+
+    public Fragment getFragment() {
+        return fragment;
+    }
+
+    public void setFragment(Fragment fragment) {
+        this.fragment = fragment;
     }
 
     public Drawable getIcon() {
@@ -83,14 +96,18 @@ public class MenuItem {
 
     public List<MenuItem> initMenu(Context context){
         List<MenuItem> menuItems = new ArrayList<>();
-        String[] title = {"Controls", "Auto Pilot"};
+        String[] title = {"Controls", "Display"};
         ArrayList<Drawable> icons = new ArrayList<>();
+        ArrayList<Fragment> fragments = new ArrayList<>();
 
-        icons.add(AppCompatResources.getDrawable(context, R.drawable.ic_menu_controls));
-        icons.add(AppCompatResources.getDrawable(context, R.drawable.ic_bluetooth_nearby));
+        icons.add(AppCompatResources.getDrawable(context, R.drawable.ic_menu_main_controls));
+        fragments.add(new MenuDisplay());
+        icons.add(AppCompatResources.getDrawable(context, R.drawable.ic_menu_main_display));
+        fragments.add(new MenuControls());
 
         for(int i = 0; i < title.length; i++){
             MenuItem menuItem = new MenuItem();
+            menuItem.setFragment(fragments.get(i));
             menuItem.setTitle(title[i]);
             menuItem.setIcon(icons.get(i));
             menuItems.add(menuItem);
