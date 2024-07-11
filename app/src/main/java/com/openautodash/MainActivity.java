@@ -18,6 +18,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.Dialog;
+import android.app.UiModeManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -147,6 +148,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     public int[] brightnessSetting;
     private boolean isDarkMode;
     int darkModeSetting;
+    int[] brightnessBuffer = {0,0,0,0,0,0,0,0,0};
 
     private TextView brightnessCrap;
 
@@ -284,14 +286,24 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         }
     }
     public void toggleDarkMode() {
+
+        if (sensorManager != null && sensorEventListenerLight != null) {
+            Log.d(TAG, "calculateScreenBrightness: unregisterListener");
+            sensorManager.unregisterListener(sensorEventListenerLight);
+            sensorEventListenerLight = null;
+        }
+
         if (!isDarkMode) {
             // Enable dark mode
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+            Log.d(TAG, "calculateScreenBrightness: ON");
         } else {
             // Disable dark mode
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+            Log.d(TAG, "calculateScreenBrightness: OFF");
         }
         isDarkMode = !isDarkMode;
+        localSettings.isNight(isDarkMode);
     }
 
     private void sendData(){
@@ -302,6 +314,8 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     protected void onPause() {
         super.onPause();
         unBindService();
+
+        unregisterReceiver(clockReceiver);
     }
 
     @Override
@@ -337,6 +351,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     protected void onDestroy() {
         super.onDestroy();
         unBindService();
+
     }
 
     public void toggleSettings(View view){
@@ -490,6 +505,10 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
                         lteStatusView.setImageDrawable(AppCompatResources.getDrawable(getApplicationContext(), R.drawable.signal_wifi_0));
                     }
                 }
+                int nightModeFlags =
+                        getApplicationContext().getResources().getConfiguration().uiMode &
+                                Configuration.UI_MODE_NIGHT_MASK;
+                Log.d(TAG, "toggleDarkMode: flag:" + nightModeFlags);
                 handler.postDelayed(this, 5000); // 5000 milliseconds = 5 seconds
             }
         };
@@ -615,49 +634,70 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         sensorManager = (SensorManager) getApplicationContext().getSystemService(Context.SENSOR_SERVICE);
         Sensor sensorLight = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
 
-        sensorEventListenerLight = new SensorEventListener() {
-            @Override
-            public void onSensorChanged(SensorEvent event) {
-                float floatSensorValue = event.values[0]; // lux
-                if (System.currentTimeMillis() - lastBrightnessTime > 1000) {
-                    lastBrightnessTime = System.currentTimeMillis();
+        isDarkMode = localSettings.getIsNight();
 
-                    String crapString = (int)floatSensorValue + "br";
-                    brightnessCrap.setText(crapString);
+        if(sensorEventListenerLight == null){
+            Log.d(TAG, "calculateScreenBrightness: init");
+            sensorEventListenerLight = new SensorEventListener() {
+                @Override
+                public void onSensorChanged(SensorEvent event) {
+                    float floatSensorValue = event.values[0]; // lux
+                    if (System.currentTimeMillis() - lastBrightnessTime > 1000) {
+                        lastBrightnessTime = System.currentTimeMillis();
 
-                    Log.d(TAG, "onSensorChanged: BRIGHTNESS: " + floatSensorValue);
+                        String crapString = (int)floatSensorValue + "br";
+                        brightnessCrap.setText(crapString);
 
-                    if (floatSensorValue > 500) {
-                        setBrightness(brightnessSetting[5]);
-                    } else if(floatSensorValue > 400) {
-                        setBrightness(brightnessSetting[4]);
-                    } else if(floatSensorValue > 100) {
-                        setBrightness(brightnessSetting[3]);
-                    } else if(floatSensorValue > 40) {
-                        setBrightness(brightnessSetting[2]);
-                    } else if(floatSensorValue > 10) {
-                        setBrightness(brightnessSetting[1]);
-                    } else {
-                        setBrightness(brightnessSetting[0]);
-                    }
+                        Log.d(TAG, "calculateScreenBrightness: Raw: " + floatSensorValue);
 
-                    if(floatSensorValue < darkModeSetting){
-                        if(!isDarkMode){
-                            toggleDarkMode();
+                        int totalBuffer = 0;
+                        for (int i = brightnessBuffer.length - 1; i > 0; i--) {
+                            brightnessBuffer[i] = brightnessBuffer[i - 1];
                         }
-                    }
-                    else{
-                        if(isDarkMode){
-                            toggleDarkMode();
+                        brightnessBuffer[0] = (int)floatSensorValue;
+
+                        for (int i = 0; i < brightnessBuffer.length; i++) {
+                            totalBuffer += brightnessBuffer[i];
+                        }
+
+                        int brightness = totalBuffer / brightnessBuffer.length;
+
+                        Log.d(TAG, "calculateScreenBrightness: Buffered: " + brightness);
+
+
+                        if (brightness > 500) {
+                            setBrightness(brightnessSetting[5]);
+                        } else if(brightness > 400) {
+                            setBrightness(brightnessSetting[4]);
+                        } else if(brightness > 100) {
+                            setBrightness(brightnessSetting[3]);
+                        } else if(brightness > 40) {
+                            setBrightness(brightnessSetting[2]);
+                        } else if(brightness > 10) {
+                            setBrightness(brightnessSetting[1]);
+                        } else {
+                            setBrightness(brightnessSetting[0]);
+                        }
+
+                        Log.d(TAG, "calculateScreenBrightness: val is dark: " + isDarkMode);
+
+                        if(brightness <= darkModeSetting){
+                            if(!isDarkMode){
+                                toggleDarkMode();
+                            }
+                        }
+                        else{
+                            if(isDarkMode){
+                                toggleDarkMode();
+                            }
                         }
                     }
                 }
-            }
-
-            @Override
-            public void onAccuracyChanged(Sensor sensor, int accuracy) {
-            }
-        };
+                @Override
+                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                }
+            };
+        }
         sensorManager.registerListener(sensorEventListenerLight, sensorLight, SensorManager.SENSOR_DELAY_NORMAL);
     }
 

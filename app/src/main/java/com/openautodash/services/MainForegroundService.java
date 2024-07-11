@@ -41,6 +41,7 @@ import androidx.lifecycle.MutableLiveData;
 
 import com.openautodash.MainActivity;
 import com.openautodash.R;
+import com.openautodash.bluetooth.BLEAdvertiser;
 import com.openautodash.enums.VehicleState;
 import com.openautodash.object.PhoneKey;
 import com.openautodash.utilities.LocalSettings;
@@ -176,7 +177,6 @@ public class MainForegroundService extends Service implements SensorEventListene
         public void run() {
             VehicleState vehicleState;
             vehicleState = VehicleState.Dead;
-            discoverKey();
 
             Log.d(TAG, "onSensorChanged: X:" + round(ax, 3) + " Y:" + round(ay, 3) + " Z:" + round(az, 3));
             ax = 0;
@@ -244,61 +244,9 @@ public class MainForegroundService extends Service implements SensorEventListene
         return true;
     }
 
-    private BroadcastReceiver btBroadCastReceiver = new BroadcastReceiver() {
-        @SuppressLint("MissingPermission")
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            if (action.equals(BluetoothDevice.ACTION_FOUND)) {
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                Log.d(TAG, "onReceive: FOUND DEVICE: " + device.getName() + " with address, " + device.getAddress());
-//                if (phoneKeyList != null && phoneKeyList.stream().anyMatch(o -> o.getBluetoothMac().equals(device.getAddress()))) {
-                if(device.getAddress().contains("5C:17:CF:7C:D8:79")){
-                    Log.d(TAG, "onReceive: Key was detected");
-                    bluetoothAdapter.cancelDiscovery();
-                    lastSawKey = System.currentTimeMillis();
-                }
-            }
-        }
-    };
-
     private void initBluetooth() {
-        bluetoothManager = getSystemService(BluetoothManager.class);
-        bluetoothAdapter = bluetoothManager.getAdapter();
-        if (bluetoothAdapter == null) {
-            Toast.makeText(this, "Bluetooth Not Available", Toast.LENGTH_SHORT).show();
-        } else {
-            IntentFilter discoveredDevicesIntent = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-            registerReceiver(btBroadCastReceiver, discoveredDevicesIntent);
-        }
-    }
-
-    @SuppressLint("MissingPermission")
-    private void discoverKey(){
-//        Log.d(TAG, "discoverKey: started");
-        if(!bluetoothAdapter.isDiscovering()){
-            bluetoothAdapter.startDiscovery();
-//            Log.d(TAG, "discoverKey: Started Discovery");
-        }
-        if(System.currentTimeMillis() - lastSawKey < 25000){
-            if(!btStatus){
-                btStatus = true;
-                keyVisible.setValue(1);
-                setLocationListener(1000, 0);
-                wakeUpDevice();
-            }
-        }
-        else{
-            if(btStatus){
-                btStatus = false;
-                setLocationListener((60000 * 15), 10);
-                keyVisible.setValue(0);
-            }
-        }
-
-        Intent intent = new Intent("data_update");
-        sendBroadcast(intent);
-//        Log.d(TAG, "discoverKey: stopped " + btStatus);
+        BLEAdvertiser bleAdvertiser = new BLEAdvertiser();
+        bleAdvertiser.startAdvertising(this);
     }
 
     @Override

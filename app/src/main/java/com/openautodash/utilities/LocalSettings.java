@@ -47,6 +47,14 @@ public class LocalSettings {
         return null;
     }
 
+    public void isNight(boolean night){
+        editor.putBoolean("isNight", night).commit();
+    }
+
+    public boolean getIsNight(){
+        return preferences.getBoolean("isNight", false);
+    }
+
     public void setNightModeSetPoint(int value){
         editor.putInt("nightModeSetPoint", value).commit();
     }
