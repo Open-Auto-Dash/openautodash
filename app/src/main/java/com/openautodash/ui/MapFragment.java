@@ -322,10 +322,10 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
 
     private int[] getMapZoomTilt(Location location) {
         int speedInt = (int) (location.getSpeed() * settings.getSpeedUnits());
-        int[] zoomTilt = {15, 55};
+        int[] zoomTilt = {14, 55};
 
         if (speedInt < 102) {
-            zoomTilt[0] = 16;
+            zoomTilt[0] = 15;
             zoomTilt[1] = 60;
         }
         if (speedInt < 79) {

@@ -43,6 +43,7 @@ import com.openautodash.MainActivity;
 import com.openautodash.R;
 import com.openautodash.bluetooth.BLEAdvertiser;
 import com.openautodash.enums.VehicleState;
+import com.openautodash.interfaces.BluetoothKeyCallback;
 import com.openautodash.object.PhoneKey;
 import com.openautodash.utilities.LocalSettings;
 import com.openautodash.utilities.LocationListener;
@@ -53,7 +54,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
-public class MainForegroundService extends Service implements SensorEventListener{
+public class MainForegroundService extends Service implements SensorEventListener, BluetoothKeyCallback {
     private static final String TAG = "MainForegroundService";
 
     //Configuration stuff
@@ -167,6 +168,26 @@ public class MainForegroundService extends Service implements SensorEventListene
         return locationLiveData;
     }
 
+    private void initBluetooth() {
+        BLEAdvertiser bleAdvertiser = new BLEAdvertiser(this);
+        bleAdvertiser.startAdvertising(this);
+    }
+    @Override
+    public void onConnected() {
+        keyVisible.postValue(1);
+    }
+
+    @Override
+    public void onDisconnected() {
+        keyVisible.postValue(0);
+    }
+
+    @Override
+    public void onDataReceived(String data) {
+
+    }
+    ///////// End of phone key //////////////////
+
     public MutableLiveData<Integer> getBluetoothState() {
         return keyVisible;
     }
@@ -242,11 +263,6 @@ public class MainForegroundService extends Service implements SensorEventListene
             }
         };
         return true;
-    }
-
-    private void initBluetooth() {
-        BLEAdvertiser bleAdvertiser = new BLEAdvertiser();
-        bleAdvertiser.startAdvertising(this);
     }
 
     @Override
