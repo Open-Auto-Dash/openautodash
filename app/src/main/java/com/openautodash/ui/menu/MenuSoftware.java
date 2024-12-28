@@ -2,23 +2,20 @@ package com.openautodash.ui.menu;
 
 import android.os.Bundle;
 
-import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
-import com.google.android.material.slider.Slider;
-import com.openautodash.MainActivity;
+import com.openautodash.BuildConfig;
 import com.openautodash.R;
-import com.openautodash.utilities.LocalSettings;
+public class MenuSoftware extends Fragment {
 
-public class MenuControls extends Fragment {
+    TextView tvSoftwareVersion;
 
-
-    public MenuControls() {
-        // Required empty public constructor
+    public MenuSoftware() {
     }
 
     @Override
@@ -29,7 +26,12 @@ public class MenuControls extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_menu_controls, container, false);
+
+        View view = inflater.inflate(R.layout.fragment_menu_software, container, false);
+
+        tvSoftwareVersion = view.findViewById(R.id.tv_menu_software_version);
+        tvSoftwareVersion.setText(BuildConfig.VERSION_NAME);
+        // Inflate the layout for this fragment
         return view;
     }
 }

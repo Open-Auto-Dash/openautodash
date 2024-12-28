@@ -6,14 +6,14 @@ plugins {
 
 android {
     namespace 'com.openautodash'
-    compileSdk 33
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.openautodash"
         minSdk 26
-        targetSdk 33
-        versionCode 1
-        versionName "1.0.0"
+        targetSdk 34
+        versionCode 137
+        versionName "0.7.23"
 
         manifestPlaceholders = [redirectSchemeName: "spotify-sdk", redirectHostName: "auth"]
 
@@ -34,28 +34,26 @@ android {
 
 dependencies {
 
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.8.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.2.0'
     testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-    implementation 'androidx.browser:browser:1.5.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    implementation 'androidx.browser:browser:1.8.0'
 
-    implementation platform('com.google.firebase:firebase-bom:31.2.3')
-    implementation 'com.google.firebase:firebase-messaging:23.1.2'
+    implementation platform('com.google.firebase:firebase-bom:32.1.0')
+    implementation 'com.google.firebase:firebase-messaging:24.1.0'
 
-    implementation 'com.google.android.gms:play-services-maps:18.1.0'
-    implementation 'com.google.android.gms:play-services-location:21.0.1'
-    implementation 'com.google.android.libraries.places:places:3.0.0'
+    implementation 'com.google.android.gms:play-services-maps:19.0.0'
+    implementation 'com.google.android.gms:play-services-location:21.3.0'
+    implementation 'com.google.android.libraries.places:places:4.1.0'
     implementation 'com.google.maps.android:android-maps-utils:2.4.0'
 
     implementation 'com.squareup.okhttp3:okhttp:4.10.0'
 
-    implementation "com.google.code.gson:gson:2.10"
+    implementation "com.google.code.gson:gson:2.10.1"
 
-    // Import the BoM for the Firebase platform
-    implementation platform('com.google.firebase:firebase-bom:32.1.0')
 
     // Add the dependencies for the Crashlytics and Analytics libraries
     // When using the BoM, you don't specify versions in Firebase library dependencies
@@ -67,17 +65,17 @@ dependencies {
 //    implementation files('../app-remote-lib/spotify-app-remote-release-0.7.2.aar')
 
 
-    // ViewModel
-    implementation "androidx.lifecycle:lifecycle-viewmodel:2.5.1"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-android:2.8.7"
+
     // LiveData
-    implementation "androidx.lifecycle:lifecycle-livedata:2.5.1"
+    implementation "androidx.lifecycle:lifecycle-livedata:2.8.7"
 
     // Saved state module for ViewModel
-    implementation "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.5.1"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.7"
 
     // Annotation processor
-    implementation "androidx.lifecycle:lifecycle-common-java8:2.5.1"
+    implementation "androidx.lifecycle:lifecycle-common-java8:2.8.7"
 
-    implementation "androidx.room:room-runtime:2.5.0"
-    annotationProcessor "androidx.room:room-compiler:2.5.0"
+    implementation "androidx.room:room-runtime:2.6.1"
+    annotationProcessor "androidx.room:room-compiler:2.6.1"
 }
