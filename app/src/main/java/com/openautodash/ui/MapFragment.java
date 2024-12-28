@@ -6,6 +6,7 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.graphics.Point;
 import android.location.Location;
 import android.location.LocationManager;
@@ -21,7 +22,6 @@ import android.view.animation.LinearInterpolator;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Observer;
 
@@ -32,32 +32,30 @@ import com.google.android.gms.maps.Projection;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
+import com.google.android.gms.maps.model.Dot;
+import com.google.android.gms.maps.model.Gap;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PointOfInterest;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
-import com.google.android.libraries.places.api.Places;
-import com.google.android.libraries.places.api.model.Place;
-import com.google.android.libraries.places.api.model.PlaceLikelihood;
-import com.google.android.libraries.places.api.model.RectangularBounds;
-import com.google.android.libraries.places.api.net.FindCurrentPlaceRequest;
-import com.google.android.libraries.places.api.net.FindCurrentPlaceResponse;
-import com.google.android.libraries.places.api.net.PlacesClient;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.maps.android.SphericalUtil;
 import com.openautodash.LiveDataViewModel;
 import com.openautodash.MainActivity;
 import com.openautodash.R;
 import com.openautodash.utilities.LocalSettings;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class MapFragment extends Fragment implements OnMapReadyCallback,
         GoogleMap.OnMapClickListener,
         GoogleMap.OnMarkerClickListener,
         GoogleMap.OnPoiClickListener {
     private static final String TAG = "MapFragment";
-
 
     //ViewModel
     private LiveDataViewModel liveDataViewModel;
@@ -69,15 +67,24 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
     private ImageView resumeAnimate;
     private ImageView mapTypeView;
     private ImageView mapTrafficView;
+    private ImageView flightDirectorView;
 
     private boolean isAnimating;
     private boolean mapMoving;
     private int lastAnimation;
+    private boolean isFlightDirectorEnabled = false;
+    private Polyline completeStopArc;
+    private Polyline slowSpeedArc;
+    private Double lastSpeed = null;
+    private Long lastSpeedTimestamp = null;
+    private Double currentDeceleration = null; // in m/s²
+    private static final double MIN_DECELERATION = 0.1; // m/s², minimum deceleration to show arc
+
+
 
     private LocalSettings settings;
 
     public MapFragment() {
-
     }
 
     @Override
@@ -92,7 +99,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        // Initialize view
         View view = inflater.inflate(R.layout.fragment_map, container, false);
 
         // Initialize map fragment
@@ -100,10 +106,10 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                 getChildFragmentManager().findFragmentById(R.id.google_map);
         supportMapFragment.getMapAsync(this);
 
-
         resumeAnimate = view.findViewById(R.id.iv_b_start_animate);
         mapTypeView = view.findViewById(R.id.iv_map_type);
         mapTrafficView = view.findViewById(R.id.iv_map_traffic);
+        flightDirectorView = view.findViewById(R.id.iv_flight_director);
 
         resumeAnimate.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -142,7 +148,23 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                 }
             }
         });
-        // Return view
+
+        flightDirectorView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isFlightDirectorEnabled = !isFlightDirectorEnabled;
+                if (isFlightDirectorEnabled) {
+                    flightDirectorView.setBackground(getContext().getResources()
+                            .getDrawable(R.drawable.background_image_view_sellected));
+                } else {
+                    flightDirectorView.setBackground(null);
+                    // Clear existing arcs if any
+                    if (completeStopArc != null) completeStopArc.remove();
+                    if (slowSpeedArc != null) slowSpeedArc.remove();
+                }
+            }
+        });
+
         return view;
     }
 
@@ -179,11 +201,11 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                     }
                 } catch (Resources.NotFoundException e) {
                     Log.e(TAG, "Can't find style. Error: ", e);
-                }        // Instantiates a new CircleOptions object and defines the center and radius
+                }
                 break;
 
             case Configuration.UI_MODE_NIGHT_NO:
-                Log.d(TAG, "onMapReady: Night Mode OFf");
+                Log.d(TAG, "onMapReady: Night Mode OFF");
                 boolean success = googleMap.setMapStyle(
                         MapStyleOptions.loadRawResourceStyle(
                                 getContext(), R.raw.map_day_white_style));
@@ -197,7 +219,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                 Log.d(TAG, "onMapReady: I have no idea if night mode is on or not. 🤷‍️");
                 break;
         }
-
 
         googleMap.setOnCameraMoveStartedListener(new GoogleMap.OnCameraMoveStartedListener() {
             @Override
@@ -214,7 +235,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         LocationManager locationManager = (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
         @SuppressLint("MissingPermission") Location lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
 
-        //43.561826, -80.668757
         LatLng location = new LatLng(43.596067, -80.717016);
         if (lastKnownLocation != null) {
             location = new LatLng(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude());
@@ -225,7 +245,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                 0);
         map.animateCamera(CameraUpdateFactory.newCameraPosition(newCamPos), 1000, null);
 
-
         Bitmap resizeBitmap = bitmapSizeByScale(BitmapFactory.decodeResource(requireContext().getResources(), R.drawable.marker_red), 0.6f);
 
         marker = map.addMarker(new MarkerOptions()
@@ -233,7 +252,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                 .title("Current Location")
                 .icon(BitmapDescriptorFactory.fromBitmap(resizeBitmap))
                 .flat(true));
-
 
         Log.d(TAG, "onMapReady");
         liveDataViewModel.getLocationData().observe(getViewLifecycleOwner(), new Observer<Location>() {
@@ -265,13 +283,11 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                     @Override
                     public void onFinish() {
                         mapMoving = false;
-                        // Code to execute when the animateCamera task has finished
                     }
 
                     @Override
                     public void onCancel() {
                         mapMoving = false;
-                        // Code to execute when the user has canceled the animateCamera task
                     }
                 });
                 lastAnimation = 0;
@@ -282,6 +298,98 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                 isAnimating = true;
             }
         }
+
+        // Update flight director arcs
+        updateDecelerationArcs(location);
+    }
+
+    private void updateDecelerationArcs(Location location) {
+        if (!isFlightDirectorEnabled) {
+            clearArcs();
+            return;
+        }
+
+        double currentSpeed = location.getSpeed(); // in m/s
+        long currentTime = SystemClock.elapsedRealtimeNanos();
+
+        // Add debug logging
+        Log.d(TAG, "Current Speed: " + (currentSpeed * 3.6) + " km/h"); // Convert to km/h for readable logs
+
+        // Calculate deceleration rate
+        if (lastSpeed != null && lastSpeedTimestamp != null) {
+            double deltaV = lastSpeed - currentSpeed;
+            double deltaT = (currentTime - lastSpeedTimestamp) / 1e9; // Convert nanos to seconds
+            currentDeceleration = deltaV / deltaT; // m/s²
+
+            // Add debug logging
+            Log.d(TAG, "Delta V: " + deltaV + " m/s");
+            Log.d(TAG, "Delta T: " + deltaT + " s");
+            Log.d(TAG, "Calculated Deceleration: " + currentDeceleration + " m/s²");
+        }
+
+        // Update speed tracking
+        lastSpeed = currentSpeed;
+        lastSpeedTimestamp = currentTime;
+
+        // For testing, let's assume a fixed deceleration when speed is above zero
+        if (currentSpeed > 0) {
+            // Assume moderate deceleration of 2 m/s² for testing
+            double testDeceleration = 2.0;
+
+            // Calculate distances
+            double stoppingDistance = (currentSpeed * currentSpeed) / (2 * testDeceleration);
+            double slowSpeed = 5.56; // 20 km/h in m/s
+            double slowSpeedDistance = (currentSpeed * currentSpeed - slowSpeed * slowSpeed) / (2 * testDeceleration);
+
+            Log.d(TAG, "Stopping Distance: " + stoppingDistance + " meters");
+            Log.d(TAG, "Slow Speed Distance: " + slowSpeedDistance + " meters");
+
+            // Generate and update arcs
+            List<LatLng> completeStopPoints = generateArcPoints(location, stoppingDistance);
+            List<LatLng> slowSpeedPoints = generateArcPoints(location, slowSpeedDistance);
+
+            updateArcs(completeStopPoints, slowSpeedPoints);
+        } else {
+            clearArcs();
+        }
+    }
+
+    private void clearArcs() {
+        if (completeStopArc != null) completeStopArc.remove();
+        if (slowSpeedArc != null) slowSpeedArc.remove();
+        completeStopArc = null;
+        slowSpeedArc = null;
+    }
+
+    private void updateArcs(List<LatLng> completeStopPoints, List<LatLng> slowSpeedPoints) {
+        if (completeStopArc != null) completeStopArc.remove();
+        if (slowSpeedArc != null) slowSpeedArc.remove();
+
+        completeStopArc = map.addPolyline(new PolylineOptions()
+                .addAll(completeStopPoints)
+                .color(Color.RED)
+                .width(5f));
+
+        slowSpeedArc = map.addPolyline(new PolylineOptions()
+                .addAll(slowSpeedPoints)
+                .color(Color.YELLOW)
+                .width(5f)
+                .pattern(Arrays.asList(new Dot(), new Gap(20))));
+    }
+
+    private List<LatLng> generateArcPoints(Location location, double distance) {
+        List<LatLng> points = new ArrayList<>();
+        double bearing = location.getBearing();
+        LatLng start = new LatLng(location.getLatitude(), location.getLongitude());
+
+        // Generate arc points using great circle calculations
+        for (int i = -30; i <= 30; i += 5) {
+            double arcBearing = bearing + i;
+            LatLng point = SphericalUtil.computeOffset(start, distance, arcBearing);
+            points.add(point);
+        }
+
+        return points;
     }
 
     // Animates a marker to a new location
@@ -291,7 +399,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         Projection proj = map.getProjection();
         Point startPoint = proj.toScreenLocation(marker.getPosition());
         final LatLng startLatLng = proj.fromScreenLocation(startPoint);
-
         final long duration = 900;
 
         final Interpolator interpolator = new LinearInterpolator();
@@ -314,8 +421,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
                     }
                 }
             });
-        }
-        else{
+        } else {
             marker.setPosition(toPosition);
         }
     }
@@ -345,9 +451,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
     public void onMapClick(LatLng latLng) {
         // Define a radius in meters for the search
         int radius = 20;
-
     }
-
 
     @Override
     public boolean onMarkerClick(@NonNull Marker marker) {
@@ -361,7 +465,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
     }
 
     public Bitmap bitmapSizeByScale(Bitmap bitmapIn, float scall_zero_to_one_f) {
-
         Bitmap bitmapOut = Bitmap.createScaledBitmap(bitmapIn,
                 Math.round(bitmapIn.getWidth() * scall_zero_to_one_f),
                 Math.round(bitmapIn.getHeight() * scall_zero_to_one_f), false);

@@ -7,13 +7,11 @@ import android.graphics.drawable.Drawable;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.fragment.app.Fragment;
 
-import com.openautodash.App;
 import com.openautodash.R;
-import com.openautodash.ui.MenuControls;
-import com.openautodash.ui.MenuDisplay;
+import com.openautodash.ui.menu.MenuControls;
+import com.openautodash.ui.menu.MenuDisplay;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class MenuItem {

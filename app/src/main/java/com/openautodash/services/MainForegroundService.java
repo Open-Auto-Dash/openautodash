@@ -2,17 +2,14 @@ package com.openautodash.services;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothManager;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -21,22 +18,20 @@ import android.hardware.SensorManager;
 import android.location.GnssStatus;
 import android.location.Location;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.StrictMode;
-import android.text.format.Time;
+import android.provider.Settings;
 import android.util.Log;
-import android.view.Window;
-import android.view.WindowManager;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
-import androidx.core.app.NotificationManagerCompat;
 import androidx.lifecycle.MutableLiveData;
 
 import com.openautodash.MainActivity;
@@ -44,59 +39,37 @@ import com.openautodash.R;
 import com.openautodash.bluetooth.BLEAdvertiser;
 import com.openautodash.enums.VehicleState;
 import com.openautodash.interfaces.BluetoothKeyCallback;
-import com.openautodash.object.PhoneKey;
 import com.openautodash.utilities.LocalSettings;
 import com.openautodash.utilities.LocationListener;
 
-import static com.openautodash.App.ForegroundService;
-
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.List;
-
 public class MainForegroundService extends Service implements SensorEventListener, BluetoothKeyCallback {
     private static final String TAG = "MainForegroundService";
+    private static final String CHANNEL_ID = "OpenAutoDashChannel";
+    private static final int NOTIFICATION_ID = 1;
+    private static final long ALARM_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
-    //Configuration stuff
     private LocalSettings settings;
-
+    private PowerManager.WakeLock wakeLock;
+    private PowerManager.WakeLock screenWakeLock;
+    private BLEAdvertiser bleAdvertiser;
 
     private SensorManager sensorManager;
-    double ax, ay, az;   // these are the acceleration in x,y and z axis
+    double ax, ay, az;   // acceleration values
 
-
-    // GPS / Location stuff
     private LocationManager locationManager;
     private LocationListener locationListener;
     private MutableLiveData<Location> locationLiveData = new MutableLiveData<>();
-
     private GnssStatus.Callback gnssCallback;
     private GnssStatus gnssStatus;
-    private Location currentLocation;
 
-
-    // Bluetooth stuff
-    private BluetoothManager bluetoothManager;
-    private BluetoothAdapter bluetoothAdapter;
     private MutableLiveData<Integer> keyVisible = new MutableLiveData<>();
-    private boolean btStatus;
+    private VehicleState vehicleState = VehicleState.Dead;
+    private Handler handler = new Handler();
 
-    //Vehicle State, Security
-    private VehicleState vehicleState;
-
-    private long lastSawKey;
-    private List<PhoneKey> phoneKeyList = new ArrayList<>();
-
-    public class MainForegroundServiceBinder extends Binder{
-        public MainForegroundService getService(){
+    public class MainForegroundServiceBinder extends Binder {
+        public MainForegroundService getService() {
             return MainForegroundService.this;
         }
-    }
-
-    @Nullable
-    @Override
-    public IBinder onBind(Intent intent) {
-        return new MainForegroundServiceBinder();
     }
 
     @Override
@@ -104,133 +77,161 @@ public class MainForegroundService extends Service implements SensorEventListene
         super.onCreate();
         Log.d(TAG, "onCreate");
 
-        PhoneKey key = new PhoneKey();
-        key.setBluetoothMac("5C:17:CF:7C:D8:79");
-        phoneKeyList.add(key);
-
-        for(PhoneKey key1: phoneKeyList){
-            Log.d(TAG, "onCreate: Keylist: " + key1.getBluetoothMac());
-        }
-
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder()
                 .permitAll().build();
-        StrictMode.setThreadPolicy(policy); //No stupid strictness for me.
+        StrictMode.setThreadPolicy(policy);
 
+        initializeComponents();
+        createNotificationChannel();
+        acquireWakeLocks();
+        requestBatteryOptimizationExemption();
+        setupPeriodicAlarm();
+
+        bleAdvertiser = new BLEAdvertiser(this);
+        bleAdvertiser.startAdvertising(this);
+    }
+
+    private void initializeComponents() {
         settings = new LocalSettings(getApplicationContext());
+
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        sensorManager.registerListener((SensorEventListener) this, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
+        sensorManager.registerListener(this,
+                sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
+                SensorManager.SENSOR_DELAY_NORMAL);
 
         locationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
         locationListener = new LocationListener(locationLiveData);
+    }
 
-        // init variables
-        phoneKeyList = settings.getPhoneKeys(); // Load into a local variable because reading from LocalSettings is slow.
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "OpenAutoDash Service",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Keeps OpenAutoDash running in background");
+            channel.setShowBadge(false);
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            manager.createNotificationChannel(channel);
+        }
+    }
+
+    private void acquireWakeLocks() {
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+
+        wakeLock = powerManager.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "OpenAutoDash:ServiceWakeLock"
+        );
+        wakeLock.acquire();
+
+        screenWakeLock = powerManager.newWakeLock(
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                "OpenAutoDash:ScreenWakeLock"
+        );
+    }
+
+    private void requestBatteryOptimizationExemption() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            String packageName = getPackageName();
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                Intent intent = new Intent();
+                intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                intent.setData(Uri.parse("package:" + packageName));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            }
+        }
+    }
+
+    private void setupPeriodicAlarm() {
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(this, MainForegroundService.class);
+        PendingIntent pendingIntent = PendingIntent.getService(
+                this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    scheduleExactAlarm(alarmManager, pendingIntent);
+                } else {
+                    // Fall back to inexact alarm
+                    alarmManager.setRepeating(
+                            AlarmManager.RTC_WAKEUP,
+                            System.currentTimeMillis() + ALARM_INTERVAL,
+                            ALARM_INTERVAL,
+                            pendingIntent
+                    );
+                }
+            } else {
+                scheduleExactAlarm(alarmManager, pendingIntent);
+            }
+        } catch (SecurityException e) {
+            Log.e(TAG, "Security exception when scheduling alarm", e);
+            // Fall back to inexact alarm
+            alarmManager.setRepeating(
+                    AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + ALARM_INTERVAL,
+                    ALARM_INTERVAL,
+                    pendingIntent
+            );
+        }
+    }
+
+    private void scheduleExactAlarm(AlarmManager alarmManager, PendingIntent pendingIntent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + ALARM_INTERVAL,
+                    pendingIntent
+            );
+        } else {
+            alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + ALARM_INTERVAL,
+                    pendingIntent
+            );
+        }
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "onStartCommand");
-        // If we get killed, after returning from here, restart
-        Intent notificationIntent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this,
-                0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
-        Notification notification = new NotificationCompat.Builder(this, ForegroundService)
-                .setContentTitle("Background Service Running")
-                .setSmallIcon(R.drawable.ic_my_location_black_24dp)
-                .setPriority(NotificationManagerCompat.IMPORTANCE_LOW)
-                .setContentIntent(pendingIntent)
-                .build();
-        startForeground(10, notification);
+        startForeground(NOTIFICATION_ID, createNotification());
 
-        handler.post(runnable);
-
-        setLocationListener(1000,0);
-        initBluetooth();
+        handler.post(serviceRunnable);
+        setLocationListener(1000, 0);
 
         return START_STICKY;
     }
 
-    @Override
-    public boolean onUnbind(Intent intent) {
-        return super.onUnbind(intent);
+    private Notification createNotification() {
+        Intent notificationIntent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE
+        );
+
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("OpenAutoDash Active")
+                .setContentText("Running in background")
+                .setSmallIcon(R.drawable.ic_my_location_black_24dp)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
+                .build();
     }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (locationManager != null) {
-            locationManager.removeUpdates(locationListener);
-            locationManager.unregisterGnssStatusCallback(gnssCallback);
-        }
-    }
-
-    public MutableLiveData<Location> getLocationLiveData() {
-        return locationLiveData;
-    }
-
-    private void initBluetooth() {
-        BLEAdvertiser bleAdvertiser = new BLEAdvertiser(this);
-        bleAdvertiser.startAdvertising(this);
-    }
-    @Override
-    public void onConnected() {
-        keyVisible.postValue(1);
-    }
-
-    @Override
-    public void onDisconnected() {
-        keyVisible.postValue(0);
-    }
-
-    @Override
-    public void onDataReceived(String data) {
-
-    }
-    ///////// End of phone key //////////////////
-
-    public MutableLiveData<Integer> getBluetoothState() {
-        return keyVisible;
-    }
-
-    private final Handler handler = new Handler();
-    private final Runnable runnable = new Runnable() {
-        @Override
-        public void run() {
-            VehicleState vehicleState;
-            vehicleState = VehicleState.Dead;
-
-            Log.d(TAG, "onSensorChanged: X:" + round(ax, 3) + " Y:" + round(ay, 3) + " Z:" + round(az, 3));
-            ax = 0;
-            ay = 0;
-            az = 0;
-            handler.postDelayed(this, 1000);
-
-
-            switch (vehicleState){
-                case Dead: // Dead                               | GPS, off
-                    break;
-                case Sleep: // Sleep                              | GPS, 10m
-                    break;
-                case Idle: // Idle                               | GPS, 1m
-                    break;
-                case Powered: // Powered                            | GPS, 10s
-                    break;
-                case Running: // Running (Engine on, Parked)        | GPS, 1s
-                    break;
-                case Driving: // Driving (Engine on, in Gear)       | GPS, 1s
-                    break;
-
-            }
-        }
-    };
-
-
 
     private boolean setLocationListener(int minTimMs, int minDistanceM) {
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
+                PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) !=
+                        PackageManager.PERMISSION_GRANTED) {
             return false;
         }
+
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTimMs, minDistanceM, locationListener);
 
         gnssCallback = new GnssStatus.Callback() {
@@ -265,10 +266,36 @@ public class MainForegroundService extends Service implements SensorEventListene
         return true;
     }
 
+    private final Runnable serviceRunnable = new Runnable() {
+        @Override
+        public void run() {
+            Log.d(TAG, "onSensorChanged: X:" + round(ax, 3) + " Y:" + round(ay, 3) + " Z:" + round(az, 3));
+            ax = 0;
+            ay = 0;
+            az = 0;
+
+            switch (vehicleState) {
+                case Dead:    // Dead     | GPS off
+                    break;
+                case Sleep:   // Sleep    | GPS, 10m
+                    break;
+                case Idle:    // Idle     | GPS, 1m
+                    break;
+                case Powered: // Powered  | GPS, 10s
+                    break;
+                case Running: // Running  | GPS, 1s
+                    break;
+                case Driving: // Driving  | GPS, 1s
+                    break;
+            }
+
+            handler.postDelayed(this, 1000);
+        }
+    };
+
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            // Getting the highest value only.
             if ((int)event.values[0] > (int)ax) {
                 ax = event.values[0];
             }
@@ -282,15 +309,40 @@ public class MainForegroundService extends Service implements SensorEventListene
     }
 
     @Override
-    public void onAccuracyChanged(Sensor sensor, int i) {
-
+    public void onConnected() {
+        Log.d(TAG, "Bluetooth key connected");
+        keyVisible.postValue(1);
+        keepScreenOn(true);
     }
 
-// In your foreground service:
+    @Override
+    public void onDisconnected() {
+        Log.d(TAG, "Bluetooth key disconnected");
+        keyVisible.postValue(0);
+        keepScreenOn(false);
+    }
+
+    @Override
+    public void onDataReceived(String data) {
+        // Handle any received data
+    }
+
+    private void keepScreenOn(boolean on) {
+        if (on) {
+            if (!screenWakeLock.isHeld()) {
+                screenWakeLock.acquire();
+            }
+            Log.d(TAG, "Screen keep on enabled");
+        } else {
+            if (screenWakeLock.isHeld()) {
+                screenWakeLock.release();
+            }
+            Log.d(TAG, "Screen keep on disabled");
+        }
+    }
 
     public void wakeUpDevice() {
         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-
         if (powerManager != null && !powerManager.isInteractive()) {
             Log.d(TAG, "wakeUpDevice");
             Intent wakeIntent = new Intent(this, MainActivity.class);
@@ -301,11 +353,59 @@ public class MainForegroundService extends Service implements SensorEventListene
         }
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        cleanup();
 
+        // Request restart
+        Intent restartIntent = new Intent("com.openautodash.RestartService");
+        sendBroadcast(restartIntent);
+    }
 
-    public static double round(double value, int places) {
+    private void cleanup() {
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+        }
+        if (screenWakeLock != null && screenWakeLock.isHeld()) {
+            screenWakeLock.release();
+        }
+        if (bleAdvertiser != null) {
+            bleAdvertiser.stopAdvertising();
+        }
+        if (locationManager != null) {
+            locationManager.removeUpdates(locationListener);
+            if (gnssCallback != null) {
+                locationManager.unregisterGnssStatusCallback(gnssCallback);
+            }
+        }
+        if (sensorManager != null) {
+            sensorManager.unregisterListener(this);
+        }
+        handler.removeCallbacksAndMessages(null);
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return new MainForegroundServiceBinder();
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // Not used but required by SensorEventListener
+    }
+
+    public MutableLiveData<Location> getLocationLiveData() {
+        return locationLiveData;
+    }
+
+    public MutableLiveData<Integer> getBluetoothState() {
+        return keyVisible;
+    }
+
+    private static double round(double value, int places) {
         if (places < 0) throw new IllegalArgumentException();
-
         long factor = (long) Math.pow(10, places);
         value = value * factor;
         long tmp = Math.round(value);

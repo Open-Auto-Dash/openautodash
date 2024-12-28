@@ -1,4 +1,4 @@
-package com.openautodash.ui;
+package com.openautodash.ui.menu;
 
 import android.os.Bundle;
 

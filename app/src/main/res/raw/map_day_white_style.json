@@ -1,7 +1,6 @@
 [
   {
     "featureType": "landscape",
-    "elementType": "all",
     "stylers": [
       {
         "color": "#e7e7e7"
@@ -10,7 +9,6 @@
   },
   {
     "featureType": "poi",
-    "elementType": "all",
     "stylers": [
       {
         "saturation": "-24"
@@ -40,7 +38,6 @@
   },
   {
     "featureType": "road",
-    "elementType": "all",
     "stylers": [
       {
         "saturation": -100
@@ -61,6 +58,21 @@
   },
   {
     "featureType": "road",
+    "elementType": "labels.icon",
+    "stylers": [
+      {
+        "saturation": "100"
+      },
+      {
+        "lightness": "16"
+      },
+      {
+        "gamma": "1.09"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
     "elementType": "labels.text",
     "stylers": [
       {
@@ -72,32 +84,39 @@
     ]
   },
   {
-    "featureType": "road",
-    "elementType": "labels.icon",
+    "featureType": "road.highway",
     "stylers": [
       {
-        "gamma": "1.09"
-      },
-      {
-        "lightness": "16"
-      },
-      {
-        "saturation": "100"
+        "color": "#e6b322"
       }
     ]
   },
   {
     "featureType": "road.highway",
-    "elementType": "all",
+    "elementType": "labels.text.fill",
     "stylers": [
       {
-        "visibility": "simplified"
+        "color": "#000000"
+      },
+      {
+        "visibility": "on"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#ffffff"
+      },
+      {
+        "visibility": "on"
       }
     ]
   },
   {
     "featureType": "transit",
-    "elementType": "all",
     "stylers": [
       {
         "visibility": "off"
@@ -106,22 +125,20 @@
   },
   {
     "featureType": "transit.station.airport",
-    "elementType": "all",
     "stylers": [
-      {
-        "visibility": "on"
-      },
       {
         "hue": "#00a5ff"
       },
       {
         "saturation": "-53"
+      },
+      {
+        "visibility": "on"
       }
     ]
   },
   {
     "featureType": "transit.station.bus",
-    "elementType": "all",
     "stylers": [
       {
         "visibility": "on"
@@ -130,7 +147,6 @@
   },
   {
     "featureType": "transit.station.rail",
-    "elementType": "all",
     "stylers": [
       {
         "hue": "#ff0000"
@@ -139,7 +155,6 @@
   },
   {
     "featureType": "water",
-    "elementType": "all",
     "stylers": [
       {
         "color": "#b2d0ff"
