@@ -141,7 +141,6 @@
                 android:id="@+id/iv_bottom_nav_bar_settings"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:onClick="toggleSettings"
                 android:padding="30dp"
                 app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
                 app:layout_constraintStart_toStartOf="@+id/bottomNavBar"

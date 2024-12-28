@@ -82,6 +82,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     private View bottomNavBar;
 
     // Control Panel Buttons
+    private ImageView menuMain;
     private ImageView menuMusic;
     private ImageView menuSeatLeft;
     private ImageView menuSeatRight;
@@ -214,6 +215,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     }
 
     private void initializeControlButtons() {
+        menuMain = findViewById(R.id.iv_bottom_nav_bar_settings);
         menuMusic = findViewById(R.id.iv_bottom_nav_bar_music);
         menuSeatLeft = findViewById(R.id.iv_bottom_nav_bar_left_seat_heater);
         menuTempLeftUp = findViewById(R.id.iv_bottom_nav_bar_left_temp_up);
@@ -228,6 +230,26 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     }
 
     private void setupControlButtonListeners() {
+        menuMain.setOnClickListener(v -> {
+            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+            if (currentMenuShowing == 1) {
+                transaction.setCustomAnimations(R.anim.stay, R.anim.slide_out_bottom);
+                transaction.remove(getSupportFragmentManager().findFragmentById(R.id.menuContainer));
+                currentMenuShowing = 0;
+            } else {
+                transaction.setCustomAnimations(R.anim.slide_in_bottom, R.anim.stay);
+                transaction.replace(R.id.menuContainer, new MenuFragment());
+                currentMenuShowing = 1;
+            }
+            transaction.commit();
+        });
+        menuMain.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                showEngineDialog();
+                return false;
+            }
+        });
         menuMusic.setOnClickListener(v -> {
         });
         menuSeatLeft.setOnClickListener(v -> {
@@ -520,6 +542,23 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         return true;
     }
 
+    public void showEngineDialog(){
+        Dialog dialog = new Dialog(this);
+        dialog.setContentView(R.layout.dialog_engine_menu);
+        dialog.getWindow().setBackgroundDrawable(ResourcesCompat.getDrawable(
+                this.getResources(), R.drawable.background_dialog, null));
+        dialog.getWindow().setLayout(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        dialog.setCancelable(true);
+
+        dialog.findViewById(R.id.b_dialog_engine_close)
+                .setOnClickListener(v -> dialog.cancel());
+
+
+        dialog.show();
+    }
+
     public void updateTemp(View view) {
         // Implement temperature update if needed
     }
@@ -682,19 +721,5 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     public static boolean isInternetConnected(Context context) {
         ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         return cm.getActiveNetwork() != null && cm.getNetworkCapabilities(cm.getActiveNetwork()) != null;
-    }
-
-    public void toggleSettings(View view) {
-        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-        if (currentMenuShowing == 1) {
-            transaction.setCustomAnimations(R.anim.stay, R.anim.slide_out_bottom);
-            transaction.remove(getSupportFragmentManager().findFragmentById(R.id.menuContainer));
-            currentMenuShowing = 0;
-        } else {
-            transaction.setCustomAnimations(R.anim.slide_in_bottom, R.anim.stay);
-            transaction.replace(R.id.menuContainer, new MenuFragment());
-            currentMenuShowing = 1;
-        }
-        transaction.commit();
     }
 }

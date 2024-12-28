@@ -27,55 +27,55 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
 
 dependencies {
-
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.2.0'
+    implementation 'androidx.browser:browser:1.8.0'
+
+    // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
-    implementation 'androidx.browser:browser:1.8.0'
 
+    // Firebase
     implementation platform('com.google.firebase:firebase-bom:32.1.0')
     implementation 'com.google.firebase:firebase-messaging:24.1.0'
+    implementation 'com.google.firebase:firebase-crashlytics'
+    implementation 'com.google.firebase:firebase-analytics'
 
+    // Google Maps & Location
     implementation 'com.google.android.gms:play-services-maps:19.0.0'
     implementation 'com.google.android.gms:play-services-location:21.3.0'
     implementation 'com.google.android.libraries.places:places:4.1.0'
     implementation 'com.google.maps.android:android-maps-utils:2.4.0'
+    implementation 'com.google.android.libraries.places:places:4.1.0'
+    implementation 'com.google.maps.android:android-maps-utils:2.4.0'
+    implementation 'com.google.maps:google-maps-services:2.1.2'
 
+    // Networking & JSON
     implementation 'com.squareup.okhttp3:okhttp:4.10.0'
-
     implementation "com.google.code.gson:gson:2.10.1"
 
-
-    // Add the dependencies for the Crashlytics and Analytics libraries
-    // When using the BoM, you don't specify versions in Firebase library dependencies
-    implementation 'com.google.firebase:firebase-crashlytics'
-    implementation 'com.google.firebase:firebase-analytics'
-
+    // Spotify
     implementation 'com.spotify.android:auth:2.0.2'
     implementation files('../libs/spotify-app-remote-release-0.7.2.aar')
-//    implementation files('../app-remote-lib/spotify-app-remote-release-0.7.2.aar')
 
+    // Lifecycle Components
+    def lifecycle_version = "2.6.2"  // Using a stable version
+    implementation "androidx.lifecycle:lifecycle-viewmodel:$lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-livedata:$lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-runtime:$lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-common:$lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-process:$lifecycle_version"
 
-    implementation "androidx.lifecycle:lifecycle-viewmodel-android:2.8.7"
-
-    // LiveData
-    implementation "androidx.lifecycle:lifecycle-livedata:2.8.7"
-
-    // Saved state module for ViewModel
-    implementation "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.7"
-
-    // Annotation processor
-    implementation "androidx.lifecycle:lifecycle-common-java8:2.8.7"
-
-    implementation "androidx.room:room-runtime:2.6.1"
-    annotationProcessor "androidx.room:room-compiler:2.6.1"
+    // Room
+    def room_version = "2.6.1"
+    implementation "androidx.room:room-runtime:$room_version"
+    annotationProcessor "androidx.room:room-compiler:$room_version"
 }

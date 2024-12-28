@@ -1,11 +1,14 @@
 buildscript {
+    ext {
+        agp_version = '8.1.2'
+    }
     repositories {
         // Make sure that you have the following two repositories
         google()  // Google's Maven repository
         mavenCentral()  // Maven Central repository
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.4' // Use the appropriate version
+        classpath "com.android.tools.build:gradle:$agp_version" // Use the appropriate version
         classpath 'com.google.gms:google-services:4.4.2'
         classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.2'
     }

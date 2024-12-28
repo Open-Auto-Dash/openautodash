@@ -136,6 +136,14 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
     }
 
     @Override
+    public void onStart() {
+        super.onStart();
+        if (mSpotifyAppRemote == null || !mSpotifyAppRemote.isConnected()) {
+            connect(false); // Attempt to reconnect without showing auth dialog
+        }
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
 
@@ -158,6 +166,14 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
                 }
             }
         });
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (mSpotifyAppRemote != null) {
+            SpotifyAppRemote.disconnect(mSpotifyAppRemote);
+        }
     }
 
     @Override
@@ -487,6 +503,11 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
 
     private void onDisconnected(){
         mConnectButton.setVisibility(View.VISIBLE);
+        new Handler().postDelayed(() -> {
+            if (getContext() != null) {  // Check if fragment is still attached
+                connect(false);
+            }
+        }, 5000); // Wai
     }
 
 
