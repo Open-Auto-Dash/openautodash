@@ -13,6 +13,64 @@
         android:id="@+id/google_map"
         android:name="com.google.android.gms.maps.SupportMapFragment"/>
 
+    <!-- Search Container -->
+    <LinearLayout
+        android:id="@+id/search_container"
+        android:layout_width="300dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="72dp"
+        android:orientation="vertical"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <EditText
+                android:id="@+id/et_search"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:background="@drawable/background_edit_text"
+                android:hint="Search for places..."
+                android:inputType="textPersonName"
+                android:paddingStart="15dp"
+                android:paddingEnd="50dp"
+                android:textSize="20sp"
+                android:imeOptions="actionSearch"/>
+
+            <ImageView
+                android:id="@+id/iv_clear_search"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="end|center_vertical"
+                android:padding="12dp"
+                android:src="@drawable/ic_baseline_close_24"
+                android:visibility="gone"
+                android:background="?attr/selectableItemBackgroundBorderless"/>
+
+        </FrameLayout>
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cv_suggestions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            app:cardElevation="4dp"
+            app:cardCornerRadius="4dp"
+            android:visibility="gone">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_suggestions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxHeight="300dp"
+                android:background="@android:color/white"/>
+
+        </androidx.cardview.widget.CardView>
+    </LinearLayout>
+
     <ImageView
         android:id="@+id/iv_b_start_animate"
         android:layout_width="150dp"
@@ -63,21 +121,5 @@
         app:circularflow_radiusInDP="34dp"
         app:layout_constraintBottom_toTopOf="@+id/iv_map_traffic"
         app:layout_constraintEnd_toEndOf="parent" />
-
-    <EditText
-        android:id="@+id/editTextTextPersonName"
-        android:layout_width="300dp"
-        android:layout_height="50dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="72dp"
-        android:background="@drawable/background_edit_text"
-        android:ems="10"
-        android:hint="Search for places..."
-        android:inputType="textPersonName"
-        android:paddingLeft="15dp"
-        android:paddingEnd="15dp"
-        android:textSize="20sp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

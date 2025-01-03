@@ -13,17 +13,25 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Observer;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -35,21 +43,29 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.Dot;
 import com.google.android.gms.maps.model.Gap;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PointOfInterest;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.libraries.places.api.model.Place;
 import com.google.maps.android.SphericalUtil;
+import com.google.maps.model.DirectionsResult;
 import com.openautodash.LiveDataViewModel;
 import com.openautodash.MainActivity;
 import com.openautodash.R;
+import com.openautodash.adapters.SearchSuggestionsAdapter;
+import com.openautodash.object.PlaceSearchResult;
 import com.openautodash.utilities.LocalSettings;
+import com.openautodash.utilities.LocationSearchManager;
+import com.openautodash.utilities.RouteManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 public class MapFragment extends Fragment implements OnMapReadyCallback,
         GoogleMap.OnMapClickListener,
@@ -63,6 +79,8 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
     //Map stuff
     private GoogleMap map;
     private Marker marker;
+    private RouteManager routeManager;
+    private Location currentLocation;
 
     private ImageView resumeAnimate;
     private ImageView mapTypeView;
@@ -80,7 +98,13 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
     private Double currentDeceleration = null; // in m/s²
     private static final double MIN_DECELERATION = 0.1; // m/s², minimum deceleration to show arc
 
+    private EditText searchEditText;
+    private ImageView clearSearchButton;
 
+    private RecyclerView suggestionsRecyclerView;
+    private CardView suggestionsCardView;
+    private SearchSuggestionsAdapter suggestionsAdapter;
+    private LocationSearchManager locationSearchManager;
 
     private LocalSettings settings;
 
@@ -93,6 +117,17 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
 
         liveDataViewModel = ((MainActivity) requireActivity()).getViewModel();
         settings = new LocalSettings(requireContext());
+
+        locationSearchManager = new LocationSearchManager(requireContext());
+        suggestionsAdapter = new SearchSuggestionsAdapter();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (routeManager != null) {
+            routeManager.cleanup();
+        }
     }
 
     @Override
@@ -110,6 +145,13 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         mapTypeView = view.findViewById(R.id.iv_map_type);
         mapTrafficView = view.findViewById(R.id.iv_map_traffic);
         flightDirectorView = view.findViewById(R.id.iv_flight_director);
+
+        searchEditText = view.findViewById(R.id.et_search);
+        suggestionsRecyclerView = view.findViewById(R.id.rv_suggestions);
+        suggestionsCardView = view.findViewById(R.id.cv_suggestions);
+        clearSearchButton = view.findViewById(R.id.iv_clear_search);
+
+        setupSearchViews();
 
         resumeAnimate.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -174,10 +216,167 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         isAnimating = true;
     }
 
+
+    private void setupSearchViews() {
+        // Setup RecyclerView
+        suggestionsRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        suggestionsRecyclerView.setAdapter(suggestionsAdapter);
+
+        clearSearchButton.setOnClickListener(v -> clearSearchAndRoute());
+
+        // Handle suggestion clicks
+        suggestionsAdapter.setOnSuggestionClickListener(suggestion -> {
+            locationSearchManager.getPlaceDetails(suggestion.placeId(), new LocationSearchManager.LocationSearchCallback() {
+                @Override
+                public void onSearchResults(List<PlaceSearchResult> results) {
+                    // Not needed for place details
+                }
+
+                @Override
+                public void onPlaceSelected(Place place) {
+                    if (place.getLocation() != null && currentLocation != null) {
+                        // Draw route to selected place
+                        LatLng origin = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
+                        routeManager.requestRoute(origin, place.getLocation(), new RouteManager.RouteCallback() {
+                            @Override
+                            public void onRouteFound(DirectionsResult result) {
+                                // Zoom map to show the entire route
+                                LatLngBounds.Builder bounds = new LatLngBounds.Builder();
+                                bounds.include(origin);
+                                bounds.include(place.getLocation());
+                                map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), 100));
+
+                                // Clear search and hide suggestions
+                                searchEditText.setText(place.getDisplayName());
+                                searchEditText.clearFocus();
+                                suggestionsCardView.setVisibility(View.GONE);
+                            }
+
+                            @Override
+                            public void onRouteError(String error) {
+                                Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                }
+
+                @Override
+                public void onError(String message) {
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
+
+
+        // Setup search input handling
+        searchEditText.addTextChangedListener(new TextWatcher() {
+            private Handler handler = new Handler();
+            private Runnable runnable;
+
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                clearSearchButton.setVisibility(s.length() > 0 ? View.VISIBLE : View.GONE);
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                handler.removeCallbacks(runnable);
+                runnable = () -> {
+                    String query = s.toString().trim();
+                    if (query.length() >= 2) {
+                        performSearch(query);
+                        suggestionsCardView.setVisibility(View.VISIBLE);
+                    } else {
+                        suggestionsCardView.setVisibility(View.GONE);
+                    }
+                };
+                handler.postDelayed(runnable, 300);
+            }
+        });
+
+        // Handle focus changes
+        searchEditText.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus && searchEditText.getText().length() >= 2) {
+                suggestionsCardView.setVisibility(View.VISIBLE);
+            } else if (!hasFocus) {
+                // Add a slight delay to allow for item clicks
+                new Handler().postDelayed(() ->
+                        suggestionsCardView.setVisibility(View.GONE), 200);
+            }
+        });
+
+        // Handle keyboard search action
+        searchEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                performSearch(searchEditText.getText().toString());
+                return true;
+            }
+            return false;
+        });
+    }
+
+    private void performSearch(String query) {
+        locationSearchManager.searchPlaces(query, new LocationSearchManager.LocationSearchCallback() {
+            @Override
+            public void onSearchResults(List<PlaceSearchResult> results) {
+                suggestionsAdapter.updateSuggestions(results);
+            }
+
+            @Override
+            public void onPlaceSelected(Place place) {
+                // Not needed for search
+            }
+
+            @Override
+            public void onError(String message) {
+                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    // Add this method to handle back press in the fragment
+    public boolean onBackPressed() {
+        if (suggestionsCardView.getVisibility() == View.VISIBLE) {
+            suggestionsCardView.setVisibility(View.GONE);
+            searchEditText.clearFocus();
+            return true;
+        }
+        return false;
+    }
+
+    private void clearSearchAndRoute() {
+        // Clear search text
+        searchEditText.setText("");
+        searchEditText.clearFocus();
+
+        // Hide suggestions
+        suggestionsCardView.setVisibility(View.GONE);
+
+        // Clear route if exists
+        if (routeManager != null) {
+            routeManager.clearRoutes();
+        }
+
+        // Hide clear button
+        clearSearchButton.setVisibility(View.GONE);
+
+        // Return to following current location if not already
+        if (currentLocation != null) {
+            isAnimating = true;
+            updateMap(currentLocation, true);
+        }
+    }
+
+
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         // When map is loaded
         map = googleMap;
+
+        routeManager = new RouteManager(requireContext().getString(R.string.google_maps_key), map);
 
         map.getUiSettings().setCompassEnabled(false);
         map.getUiSettings().setZoomControlsEnabled(true);
@@ -257,6 +456,8 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         liveDataViewModel.getLocationData().observe(getViewLifecycleOwner(), new Observer<Location>() {
             @Override
             public void onChanged(Location location) {
+                currentLocation = location;
+
                 if (map != null) {
                     updateMap(location, false);
                     Log.d(TAG, "onReceive: Lat/Lng: " + location.getLatitude() + " | " + location.getLongitude() + " Bearing: " + location.getBearing() + " Speed: " + location.getSpeed() * 3.6);

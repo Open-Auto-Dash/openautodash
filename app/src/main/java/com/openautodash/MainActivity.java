@@ -50,6 +50,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.openautodash.enums.Units;
+import com.openautodash.interfaces.VehicleControlCallback;
 import com.openautodash.interfaces.WeatherUpdateCallback;
 import com.openautodash.object.Weather;
 import com.openautodash.services.MainForegroundService;
@@ -63,7 +64,7 @@ import com.openautodash.utilities.WeatherManager;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class MainActivity extends AppCompatActivity implements WeatherUpdateCallback {
+public class MainActivity extends AppCompatActivity implements WeatherUpdateCallback, VehicleControlCallback {
     private static final String TAG = "MainActivity";
 
     // Permission request codes
@@ -361,6 +362,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
             MainForegroundService.MainForegroundServiceBinder mainForegroundServiceBinder =
                     (MainForegroundService.MainForegroundServiceBinder) binder;
             mainForegroundService = mainForegroundServiceBinder.getService();
+            mainForegroundService.setVehicleControlCallback(MainActivity.this);
 
             setupLocationObserver();
             setupBluetoothObserver();
@@ -721,5 +723,34 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
     public static boolean isInternetConnected(Context context) {
         ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         return cm.getActiveNetwork() != null && cm.getNetworkCapabilities(cm.getActiveNetwork()) != null;
+    }
+
+    public static boolean isKeyConnected(){
+        return isKeyConnected();
+    }
+
+    @Override
+    public void onLockCommand() {
+
+    }
+
+    @Override
+    public void onUnlockCommand() {
+
+    }
+
+    @Override
+    public void onStartCommand() {
+
+    }
+
+    @Override
+    public void onStopCommand() {
+
+    }
+
+    @Override
+    public void onLightsCommand(boolean on) {
+
     }
 }

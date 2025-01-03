@@ -8,6 +8,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -39,10 +40,15 @@ import com.openautodash.R;
 import com.openautodash.bluetooth.BLEAdvertiser;
 import com.openautodash.enums.VehicleState;
 import com.openautodash.interfaces.BluetoothKeyCallback;
+import com.openautodash.interfaces.VehicleControlCallback;
 import com.openautodash.utilities.LocalSettings;
 import com.openautodash.utilities.LocationListener;
 
-public class MainForegroundService extends Service implements SensorEventListener, BluetoothKeyCallback {
+import java.util.HashMap;
+import java.util.Map;
+
+
+public class MainForegroundService extends Service implements SensorEventListener, BluetoothKeyCallback, BLEAdvertiser.MessageHandler {
     private static final String TAG = "MainForegroundService";
     private static final String CHANNEL_ID = "OpenAutoDashChannel";
     private static final int NOTIFICATION_ID = 1;
@@ -66,6 +72,92 @@ public class MainForegroundService extends Service implements SensorEventListene
     private VehicleState vehicleState = VehicleState.Dead;
     private Handler handler = new Handler();
 
+    private VehicleControlCallback vehicleControlCallback;
+
+    @Override
+    public void onRssiUpdate(BluetoothDevice device, int rssi) {
+        Log.d(TAG, "RSSI update from " + device.getAddress() + ": " + rssi);
+    }
+
+    @Override
+    public void onLocationPin(double latitude, double longitude, String label) {
+        // Broadcast location pin to MainActivity or handle as needed
+        Intent intent = new Intent("location_pin_received");
+        intent.putExtra("latitude", latitude);
+        intent.putExtra("longitude", longitude);
+        intent.putExtra("label", label);
+        sendBroadcast(intent);
+    }
+
+    @Override
+    public void onVehicleCommand(String command, String[] params) {
+        if (vehicleControlCallback == null) return;
+
+        switch (command.toUpperCase()) {
+            case "LOCK":
+                vehicleControlCallback.onLockCommand();
+                break;
+            case "UNLOCK":
+                vehicleControlCallback.onUnlockCommand();
+                break;
+            case "START":
+                vehicleControlCallback.onStartCommand();
+                break;
+            case "STOP":
+                vehicleControlCallback.onStopCommand();
+                break;
+            case "LIGHTS":
+                if (params.length > 0) {
+                    boolean turnOn = Boolean.parseBoolean(params[0]);
+                    vehicleControlCallback.onLightsCommand(turnOn);
+                }
+                break;
+            default:
+                Log.w(TAG, "Unknown vehicle command: " + command);
+        }
+    }
+
+    @Override
+    public void onTelemetryRequest(BluetoothDevice device) {
+        // Gather current telemetry data
+        Map<String, String> telemetryData = new HashMap<>();
+        telemetryData.put("speed", "0"); // Replace with actual speed
+        telemetryData.put("rpm", "0"); // Replace with actual RPM
+        telemetryData.put("temp", "0"); // Replace with actual temperature
+        telemetryData.put("fuel", "0"); // Replace with actual fuel level
+        telemetryData.put("voltage", "0"); // Replace with actual voltage
+
+        // Add accelerometer data
+        telemetryData.put("accel_x", String.valueOf(round(ax, 3)));
+        telemetryData.put("accel_y", String.valueOf(round(ay, 3)));
+        telemetryData.put("accel_z", String.valueOf(round(az, 3)));
+
+        // Add location data if available
+        Location location = locationLiveData.getValue();
+        if (location != null) {
+            telemetryData.put("lat", String.valueOf(location.getLatitude()));
+            telemetryData.put("lon", String.valueOf(location.getLongitude()));
+            telemetryData.put("alt", String.valueOf(location.getAltitude()));
+            telemetryData.put("speed_gps", String.valueOf(location.getSpeed()));
+            telemetryData.put("bearing", String.valueOf(location.getBearing()));
+        }
+
+        // Send telemetry data through BLE
+        if (bleAdvertiser != null) {
+            bleAdvertiser.sendTelemetryData(telemetryData);
+        }
+    }
+
+    public void setVehicleControlCallback(VehicleControlCallback callback) {
+        this.vehicleControlCallback = callback;
+    }
+
+    public void sendVehicleState(VehicleState state) {
+        if (bleAdvertiser != null) {
+            bleAdvertiser.sendMessage("STATE:" + state.name());
+        }
+    }
+
     public class MainForegroundServiceBinder extends Binder {
         public MainForegroundService getService() {
             return MainForegroundService.this;
@@ -87,8 +179,8 @@ public class MainForegroundService extends Service implements SensorEventListene
         requestBatteryOptimizationExemption();
         setupPeriodicAlarm();
 
-        bleAdvertiser = new BLEAdvertiser(this);
-        bleAdvertiser.startAdvertising(this);
+        bleAdvertiser = new BLEAdvertiser(this, this, this);
+        bleAdvertiser.startAdvertising();
     }
 
     private void initializeComponents() {
@@ -324,7 +416,7 @@ public class MainForegroundService extends Service implements SensorEventListene
 
     @Override
     public void onDataReceived(String data) {
-        // Handle any received data
+        Log.d(TAG, "Raw data received: " + data);
     }
 
     private void keepScreenOn(boolean on) {

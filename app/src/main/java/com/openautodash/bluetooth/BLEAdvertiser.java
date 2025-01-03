@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothGattServer;
 import android.bluetooth.BluetoothGattServerCallback;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
@@ -20,23 +21,37 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelUuid;
 import android.util.Log;
-
 import androidx.core.app.ActivityCompat;
+import androidx.lifecycle.MutableLiveData;
 
+import com.openautodash.MainActivity;
 import com.openautodash.interfaces.BluetoothKeyCallback;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BLEAdvertiser {
     private static final String TAG = "BLEAdvertiser";
 
     private static final UUID SERVICE_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private static final UUID CHARACTERISTIC_UUID = UUID.fromString("3de187e2-5864-435e-b11b-e1e04ab27579");
+    private static final UUID CLIENT_CHARACTERISTIC_CONFIG = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
-    private final BluetoothKeyCallback callback;
+    private static final int RSSI_CONNECT_THRESHOLD = -65;
+    private static final int RSSI_DISCONNECT_THRESHOLD = -80;
+    private static final int RECONNECTION_DELAY = 5000;
+    private static final int MAX_RETRY_ATTEMPTS = 3;
+
     private final Context context;
+    private final BluetoothKeyCallback keyCallback;
+    private boolean currentKeyConnected;
+    private final MessageHandler messageHandler;
+    private final Handler reconnectionHandler = new Handler(Looper.getMainLooper());
+
     private BluetoothManager bluetoothManager;
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothLeAdvertiser advertiser;
@@ -44,21 +59,27 @@ public class BLEAdvertiser {
     private BluetoothGattCharacteristic characteristic;
     private AdvertiseCallback advertiseCallback;
 
-    private final Handler reconnectionHandler = new Handler(Looper.getMainLooper());
+    private final Map<BluetoothDevice, Integer> deviceRssiMap = new ConcurrentHashMap<>();
     private final Set<BluetoothDevice> connectedDevices = new HashSet<>();
     private boolean isAdvertising = false;
-    private static final int RECONNECTION_DELAY = 5000; // 5 seconds
-    private static final int MAX_RETRY_ATTEMPTS = 3;
     private int retryCount = 0;
-    private static final int RSSI_THRESHOLD = -85; // RSSI threshold in dBm
 
-    public BLEAdvertiser(BluetoothKeyCallback callback) {
-        this.callback = callback;
-        this.context = (Context) callback;
+    // Interface for handling different types of messages
+    public interface MessageHandler {
+        void onRssiUpdate(BluetoothDevice device, int rssi);
+        void onLocationPin(double latitude, double longitude, String label);
+        void onVehicleCommand(String command, String[] params);
+        void onTelemetryRequest(BluetoothDevice device);
+    }
+
+    public BLEAdvertiser(Context context, BluetoothKeyCallback keyCallback, MessageHandler messageHandler) {
+        this.context = context;
+        this.keyCallback = keyCallback;
+        this.messageHandler = messageHandler;
     }
 
     @SuppressLint("MissingPermission")
-    public void startAdvertising(Context context) {
+    public void startAdvertising() {
         Log.d(TAG, "Starting BLE advertising");
 
         if (isAdvertising) {
@@ -103,7 +124,7 @@ public class BLEAdvertiser {
             return;
         }
 
-        bluetoothAdapter.setName("Ford Fusion 01");
+        bluetoothAdapter.setName("OpenAutoDash");
 
         AdvertiseSettings settings = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
@@ -112,16 +133,14 @@ public class BLEAdvertiser {
                 .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
                 .build();
 
-        ParcelUuid pUuid = ParcelUuid.fromString(SERVICE_UUID.toString());
         AdvertiseData data = new AdvertiseData.Builder()
                 .setIncludeDeviceName(true)
-                .addServiceUuid(pUuid)
+                .addServiceUuid(ParcelUuid.fromString(SERVICE_UUID.toString()))
                 .build();
 
         advertiseCallback = new AdvertiseCallback() {
             @Override
             public void onStartSuccess(AdvertiseSettings settingsInEffect) {
-                super.onStartSuccess(settingsInEffect);
                 Log.d(TAG, "Advertising started successfully");
                 isAdvertising = true;
                 retryCount = 0;
@@ -130,7 +149,6 @@ public class BLEAdvertiser {
 
             @Override
             public void onStartFailure(int errorCode) {
-                super.onStartFailure(errorCode);
                 isAdvertising = false;
                 String errorMessage = getAdvertiseErrorMessage(errorCode);
                 Log.e(TAG, "Failed to start advertising: " + errorMessage);
@@ -146,55 +164,38 @@ public class BLEAdvertiser {
         }
     }
 
-    private void retryAdvertising() {
-        if (retryCount < MAX_RETRY_ATTEMPTS) {
-            retryCount++;
-            Log.d(TAG, "Retrying advertising, attempt " + retryCount);
-            reconnectionHandler.postDelayed(() -> {
-                if (!isAdvertising) {
-                    setupAdvertising();
-                }
-            }, RECONNECTION_DELAY);
-        } else {
-            Log.e(TAG, "Max retry attempts reached");
-            retryCount = 0;
-        }
-    }
-
-    private boolean checkPermissions() {
-        return ActivityCompat.checkSelfPermission(context,
-                Manifest.permission.BLUETOOTH_ADVERTISE) == PackageManager.PERMISSION_GRANTED;
-    }
-
     @SuppressLint("MissingPermission")
     private void setupGattServer() {
         if (gattServer != null) {
             gattServer.close();
         }
 
-        try {
-            gattServer = bluetoothManager.openGattServer(context, gattServerCallback);
-            if (gattServer == null) {
-                Log.e(TAG, "Failed to create GATT server");
-                return;
-            }
+        gattServer = bluetoothManager.openGattServer(context, gattServerCallback);
+        if (gattServer == null) {
+            Log.e(TAG, "Failed to create GATT server");
+            return;
+        }
 
-            BluetoothGattService service = new BluetoothGattService(SERVICE_UUID,
-                    BluetoothGattService.SERVICE_TYPE_PRIMARY);
-            characteristic = new BluetoothGattCharacteristic(CHARACTERISTIC_UUID,
-                    BluetoothGattCharacteristic.PROPERTY_READ |
-                            BluetoothGattCharacteristic.PROPERTY_WRITE |
-                            BluetoothGattCharacteristic.PROPERTY_NOTIFY,
-                    BluetoothGattCharacteristic.PERMISSION_READ |
-                            BluetoothGattCharacteristic.PERMISSION_WRITE);
+        BluetoothGattService service = new BluetoothGattService(SERVICE_UUID,
+                BluetoothGattService.SERVICE_TYPE_PRIMARY);
 
-            service.addCharacteristic(characteristic);
+        characteristic = new BluetoothGattCharacteristic(CHARACTERISTIC_UUID,
+                BluetoothGattCharacteristic.PROPERTY_READ |
+                        BluetoothGattCharacteristic.PROPERTY_WRITE |
+                        BluetoothGattCharacteristic.PROPERTY_NOTIFY |
+                        BluetoothGattCharacteristic.PROPERTY_INDICATE,
+                BluetoothGattCharacteristic.PERMISSION_READ |
+                        BluetoothGattCharacteristic.PERMISSION_WRITE);
 
-            if (!gattServer.addService(service)) {
-                Log.e(TAG, "Failed to add service to GATT server");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error setting up GATT server", e);
+        BluetoothGattDescriptor descriptor = new BluetoothGattDescriptor(
+                CLIENT_CHARACTERISTIC_CONFIG,
+                BluetoothGattDescriptor.PERMISSION_READ |
+                        BluetoothGattDescriptor.PERMISSION_WRITE);
+        characteristic.addDescriptor(descriptor);
+
+        service.addCharacteristic(characteristic);
+        if (!gattServer.addService(service)) {
+            Log.e(TAG, "Failed to add service to GATT server");
             retryAdvertising();
         }
     }
@@ -202,8 +203,6 @@ public class BLEAdvertiser {
     private final BluetoothGattServerCallback gattServerCallback = new BluetoothGattServerCallback() {
         @Override
         public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
-            super.onConnectionStateChange(device, status, newState);
-
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 Log.e(TAG, "Error in connection state change: " + status);
                 handleDisconnection(device);
@@ -230,66 +229,159 @@ public class BLEAdvertiser {
         @SuppressLint("MissingPermission")
         @Override
         public void onCharacteristicWriteRequest(BluetoothDevice device, int requestId,
-                                                 BluetoothGattCharacteristic characteristic, boolean preparedWrite,
-                                                 boolean responseNeeded, int offset, byte[] value) {
+                                                 BluetoothGattCharacteristic characteristic,
+                                                 boolean preparedWrite, boolean responseNeeded,
+                                                 int offset, byte[] value) {
             if (CHARACTERISTIC_UUID.equals(characteristic.getUuid())) {
-                characteristic.setValue(value);
                 if (responseNeeded) {
                     gattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS,
                             offset, value);
                 }
-                String receivedData = new String(value);
-                Log.d(TAG, "Received data: " + receivedData);
-                callback.onDataReceived(receivedData);
+                handleIncomingMessage(device, new String(value));
+            }
+        }
+
+        @SuppressLint("MissingPermission")
+        @Override
+        public void onDescriptorWriteRequest(BluetoothDevice device, int requestId,
+                                             BluetoothGattDescriptor descriptor,
+                                             boolean preparedWrite, boolean responseNeeded,
+                                             int offset, byte[] value) {
+            if (CLIENT_CHARACTERISTIC_CONFIG.equals(descriptor.getUuid())) {
+                if (responseNeeded) {
+                    gattServer.sendResponse(device, requestId,
+                            BluetoothGatt.GATT_SUCCESS, offset, value);
+                }
             }
         }
     };
 
+    private void handleIncomingMessage(BluetoothDevice device, String message) {
+        Log.d(TAG, "Received message: " + message);
+        String[] parts = message.split(":", 2);
+        if (parts.length != 2) return;
+
+        String type = parts[0];
+        String data = parts[1];
+
+        switch (type) {
+            case "RSSI":
+                try {
+                    int rssi = Integer.parseInt(data);
+                    updateDeviceRssi(device, rssi);
+                } catch (NumberFormatException e) {
+                    Log.e(TAG, "Invalid RSSI value: " + data);
+                }
+                break;
+
+            case "PIN":
+                handleLocationPin(data);
+                break;
+
+            case "CMD":
+                handleVehicleCommand(data);
+                break;
+
+            case "TELEMETRY":
+                messageHandler.onTelemetryRequest(device);
+                break;
+        }
+    }
+
+    private void updateDeviceRssi(BluetoothDevice device, int rssi) {
+        deviceRssiMap.put(device, rssi);
+        messageHandler.onRssiUpdate(device, rssi);
+
+        if (rssi > RSSI_CONNECT_THRESHOLD && !currentKeyConnected) {  // Signal better than -65
+            currentKeyConnected = true;
+            keyCallback.onConnected();
+        } else if (rssi < RSSI_DISCONNECT_THRESHOLD && currentKeyConnected) {  // Signal worse than -95
+            currentKeyConnected = false;
+            keyCallback.onDisconnected();
+        }
+    }
+
+    private void handleLocationPin(String data) {
+        String[] parts = data.split(",");
+        if (parts.length != 3) return;
+
+        try {
+            double latitude = Double.parseDouble(parts[0]);
+            double longitude = Double.parseDouble(parts[1]);
+            String label = parts[2];
+            messageHandler.onLocationPin(latitude, longitude, label);
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "Invalid location data: " + data);
+        }
+    }
+
+    private void handleVehicleCommand(String data) {
+        String[] parts = data.split(",");
+        if (parts.length < 1) return;
+
+        String command = parts[0];
+        String[] params = new String[parts.length - 1];
+        System.arraycopy(parts, 1, params, 0, parts.length - 1);
+        messageHandler.onVehicleCommand(command, params);
+    }
+
     private void handleConnection(BluetoothDevice device) {
         Log.d(TAG, "Device connected: " + device.getAddress());
-        connectedDevices.add(device);
-        startConnectionMonitoring(device);
-        if (connectedDevices.size() == 1) { // First device connected
-            callback.onConnected();
-        }
     }
 
     private void handleDisconnection(BluetoothDevice device) {
         Log.d(TAG, "Device disconnected: " + device.getAddress());
-        connectedDevices.remove(device);
-        reconnectionHandler.removeCallbacksAndMessages(device);
 
-        if (connectedDevices.isEmpty()) {
-            callback.onDisconnected();
-        }
-    }
-
-    private void startConnectionMonitoring(BluetoothDevice device) {
-        Runnable monitorRunnable = new Runnable() {
-            @Override
-            public void run() {
-                if (connectedDevices.contains(device)) {
-                    sendPing(device);
-                    reconnectionHandler.postDelayed(this, 5000);
-                }
-            }
-        };
-        reconnectionHandler.postDelayed(monitorRunnable, 5000);
+        keyCallback.onDisconnected();
     }
 
     @SuppressLint("MissingPermission")
-    private void sendPing(BluetoothDevice device) {
-        try {
-            if (characteristic != null && gattServer != null) {
-                characteristic.setValue("ping".getBytes());
+    public void sendMessage(String message) {
+        if (characteristic == null || gattServer == null || connectedDevices.isEmpty()) {
+            return;
+        }
+
+        characteristic.setValue(message.getBytes());
+        for (BluetoothDevice device : connectedDevices) {
+            try {
                 gattServer.notifyCharacteristicChanged(device, characteristic, false);
+            } catch (Exception e) {
+                Log.e(TAG, "Error sending message to device: " + device.getAddress(), e);
+                handleDisconnection(device);
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Error sending ping", e);
-            handleDisconnection(device);
         }
     }
 
+    public void sendTelemetryData(Map<String, String> telemetryData) {
+        StringBuilder message = new StringBuilder("TELEMETRY:");
+        for (Map.Entry<String, String> entry : telemetryData.entrySet()) {
+            message.append(entry.getKey())
+                    .append("=")
+                    .append(entry.getValue())
+                    .append(",");
+        }
+        // Remove trailing comma
+        if (message.length() > 0 && message.charAt(message.length() - 1) == ',') {
+            message.setLength(message.length() - 1);
+        }
+        sendMessage(message.toString());
+    }
+
+    private void retryAdvertising() {
+        if (retryCount < MAX_RETRY_ATTEMPTS) {
+            retryCount++;
+            Log.d(TAG, "Retrying advertising, attempt " + retryCount);
+            reconnectionHandler.postDelayed(this::setupAdvertising, RECONNECTION_DELAY);
+        } else {
+            Log.e(TAG, "Max retry attempts reached");
+            retryCount = 0;
+        }
+    }
+
+    private boolean checkPermissions() {
+        return ActivityCompat.checkSelfPermission(context,
+                Manifest.permission.BLUETOOTH_ADVERTISE) == PackageManager.PERMISSION_GRANTED;
+    }
     @SuppressLint("MissingPermission")
     public void stopAdvertising() {
         Log.d(TAG, "Stopping BLE advertising");
@@ -303,28 +395,31 @@ public class BLEAdvertiser {
         }
 
         reconnectionHandler.removeCallbacksAndMessages(null);
-        connectedDevices.clear();
 
         if (gattServer != null) {
-            gattServer.close();
-            gattServer = null;
+            try {
+                gattServer.close();
+                gattServer = null;
+            } catch (Exception e) {
+                Log.e(TAG, "Error closing GATT server", e);
+            }
         }
 
+        connectedDevices.clear();
+        deviceRssiMap.clear();
         isAdvertising = false;
     }
 
-    @SuppressLint("MissingPermission")
-    public void sendMessage(String message) {
-        if (characteristic != null && gattServer != null && !connectedDevices.isEmpty()) {
-            characteristic.setValue(message.getBytes());
-            for (BluetoothDevice device : connectedDevices) {
-                try {
-                    gattServer.notifyCharacteristicChanged(device, characteristic, false);
-                } catch (Exception e) {
-                    Log.e(TAG, "Error sending message to device: " + device.getAddress(), e);
-                }
-            }
-        }
+    public boolean isAdvertising() {
+        return isAdvertising;
+    }
+
+    public Set<BluetoothDevice> getConnectedDevices() {
+        return new HashSet<>(connectedDevices);
+    }
+
+    public Integer getDeviceRssi(BluetoothDevice device) {
+        return deviceRssiMap.get(device);
     }
 
     private String getAdvertiseErrorMessage(int errorCode) {
