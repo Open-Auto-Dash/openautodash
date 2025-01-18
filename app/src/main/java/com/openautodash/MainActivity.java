@@ -48,6 +48,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.openautodash.enums.Units;
 import com.openautodash.interfaces.VehicleControlCallback;
@@ -252,6 +253,26 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
             }
         });
         menuMusic.setOnClickListener(v -> {
+            try {
+                Intent intent = this.getPackageManager().getLaunchIntentForPackage("com.spotify.music");
+                if (intent != null) {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    this.startActivity(intent);
+                } else {
+                    // Spotify isn't installed
+                    // Optionally open Play Store to install Spotify
+                    try {
+                        this.startActivity(new Intent(Intent.ACTION_VIEW,
+                                Uri.parse("market://details?id=com.spotify.music")));
+                    } catch (android.content.ActivityNotFoundException e) {
+                        this.startActivity(new Intent(Intent.ACTION_VIEW,
+                                Uri.parse("https://play.google.com/store/apps/details?id=com.spotify.music")));
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
         });
         menuSeatLeft.setOnClickListener(v -> {
         });
@@ -544,7 +565,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         return true;
     }
 
-    public void showEngineDialog(){
+    public void showEngineDialog() {
         Dialog dialog = new Dialog(this);
         dialog.setContentView(R.layout.dialog_engine_menu);
         dialog.getWindow().setBackgroundDrawable(ResourcesCompat.getDrawable(
@@ -725,7 +746,7 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
         return cm.getActiveNetwork() != null && cm.getNetworkCapabilities(cm.getActiveNetwork()) != null;
     }
 
-    public static boolean isKeyConnected(){
+    public static boolean isKeyConnected() {
         return isKeyConnected();
     }
 

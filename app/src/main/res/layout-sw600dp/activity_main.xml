@@ -137,7 +137,7 @@
 
                 <View
                     android:id="@+id/bottomNavBar"
-                    android:layout_width="1300dp"
+                    android:layout_width="1400dp"
                     android:layout_height="match_parent"
                     android:background="@android:color/black"
                     app:layout_constraintBottom_toBottomOf="parent"

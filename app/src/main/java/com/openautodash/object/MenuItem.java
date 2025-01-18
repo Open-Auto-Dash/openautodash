@@ -102,7 +102,7 @@ public class MenuItem {
 
     public List<MenuItem> initMenu(Context context){
         List<MenuItem> menuItems = new ArrayList<>();
-        String[] title = {"Controls", "Autopilot", "Locks", "Lights", "Display", "Trips", "Navigation", "Safety", "Service", "Software"};
+        String[] title = {"Controls", "Apps", "Locks", "Lights", "Display", "Trips", "Navigation", "Safety", "Service", "Software"};
         ArrayList<Drawable> icons = new ArrayList<>();
         ArrayList<Fragment> fragments = new ArrayList<>();
 
