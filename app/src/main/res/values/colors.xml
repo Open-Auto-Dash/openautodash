@@ -20,6 +20,7 @@
 
     <color name="recyclerViewSelectedColor">#D3D3D3</color>
     <color name="colorBackgroundDefault">#f6f7fb</color>
+    <color name="colorBackgroundLightBorder">#E6E6E6</color>
     <color name="colorBackgroundLight">#ffffff</color>
 
     <color name="colorEditTextSolid">#ffffff</color>

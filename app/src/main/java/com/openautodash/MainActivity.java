@@ -42,6 +42,7 @@ import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -575,9 +576,16 @@ public class MainActivity extends AppCompatActivity implements WeatherUpdateCall
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         dialog.setCancelable(true);
 
+        // Set gravity to bottom
+        Window window = dialog.getWindow();
+        if (window != null) {
+            WindowManager.LayoutParams params = window.getAttributes();
+            params.gravity = Gravity.BOTTOM;
+            window.setAttributes(params);
+        }
+
         dialog.findViewById(R.id.b_dialog_engine_close)
                 .setOnClickListener(v -> dialog.cancel());
-
 
         dialog.show();
     }
