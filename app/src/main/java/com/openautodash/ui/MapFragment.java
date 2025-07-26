@@ -57,6 +57,7 @@ import com.openautodash.LiveDataViewModel;
 import com.openautodash.MainActivity;
 import com.openautodash.R;
 import com.openautodash.adapters.SearchSuggestionsAdapter;
+import com.openautodash.object.LastKnownCameraPosition;
 import com.openautodash.object.PlaceSearchResult;
 import com.openautodash.utilities.LocalSettings;
 import com.openautodash.utilities.LocationSearchManager;
@@ -438,11 +439,14 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         if (lastKnownLocation != null) {
             location = new LatLng(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude());
         }
+
+        LastKnownCameraPosition lastKnownCameraPosition = liveDataViewModel.getLastKnownCameraPosition().getValue();
+
         CameraPosition newCamPos = new CameraPosition(location,
-                18,
-                70,
-                0);
-        map.animateCamera(CameraUpdateFactory.newCameraPosition(newCamPos), 1000, null);
+                lastKnownCameraPosition.zoom,
+                lastKnownCameraPosition.tilt,
+                lastKnownCameraPosition.bearing);
+        map.moveCamera(CameraUpdateFactory.newCameraPosition(newCamPos));
 
         Bitmap resizeBitmap = bitmapSizeByScale(BitmapFactory.decodeResource(requireContext().getResources(), R.drawable.marker_red), 0.6f);
 
@@ -476,6 +480,14 @@ public class MapFragment extends Fragment implements OnMapReadyCallback,
         if (isAnimating) {
             if (location.getSpeed() > 4 && !mapMoving || driftOff) {
                 mapMoving = true;
+
+                LastKnownCameraPosition lastKnownCameraPosition =  new LastKnownCameraPosition(
+                        getMapZoomTilt(location)[0],
+                        getMapZoomTilt(location)[1],
+                        location.getBearing()
+                );
+                liveDataViewModel.setLastKnownCameraPosition(lastKnownCameraPosition);
+
                 CameraPosition newCamPos = new CameraPosition(latLng,
                         getMapZoomTilt(location)[0],
                         getMapZoomTilt(location)[1],

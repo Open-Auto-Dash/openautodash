@@ -41,6 +41,7 @@ import com.openautodash.bluetooth.BLEAdvertiser;
 import com.openautodash.enums.VehicleState;
 import com.openautodash.interfaces.BluetoothKeyCallback;
 import com.openautodash.interfaces.VehicleControlCallback;
+import com.openautodash.object.LastKnownCameraPosition;
 import com.openautodash.utilities.LocalSettings;
 import com.openautodash.utilities.LocationListener;
 

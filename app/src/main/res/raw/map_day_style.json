@@ -170,14 +170,6 @@
     ]
   },
   {
-    "featureType": "transit",
-    "stylers": [
-      {
-        "visibility": "off"
-      }
-    ]
-  },
-  {
     "featureType": "transit.station.airport",
     "stylers": [
       {
@@ -196,14 +188,6 @@
     "stylers": [
       {
         "visibility": "on"
-      }
-    ]
-  },
-  {
-    "featureType": "transit.station.rail",
-    "stylers": [
-      {
-        "hue": "#ff0000"
       }
     ]
   },

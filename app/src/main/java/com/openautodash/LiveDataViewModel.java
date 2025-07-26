@@ -10,6 +10,7 @@ import androidx.lifecycle.MutableLiveData;
 
 import com.openautodash.database.TelemetryLog;
 import com.openautodash.database.DatabaseRepository;
+import com.openautodash.object.LastKnownCameraPosition;
 
 import java.util.List;
 
@@ -20,6 +21,8 @@ public class LiveDataViewModel extends AndroidViewModel {
 
     private LiveData<List<TelemetryLog>> telemetryLogs;
     private MutableLiveData<Location> locationData = new MutableLiveData<>();
+
+    private MutableLiveData<LastKnownCameraPosition> lastKnownCameraPosition = new MutableLiveData<>(new LastKnownCameraPosition(17, 60, 0));
 
     public LiveDataViewModel(Application application) {
         super(application);
@@ -50,5 +53,13 @@ public class LiveDataViewModel extends AndroidViewModel {
 
     public void setLocation(Location location) {
         locationData.setValue(location);
+    }
+
+    public LiveData<LastKnownCameraPosition> getLastKnownCameraPosition (){
+        return lastKnownCameraPosition;
+    }
+
+    public void setLastKnownCameraPosition(LastKnownCameraPosition lastKnownCameraPosition){
+        this.lastKnownCameraPosition.setValue(lastKnownCameraPosition);
     }
 }
