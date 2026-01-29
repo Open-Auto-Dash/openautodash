@@ -327,6 +327,7 @@ public class BLEAdvertiser {
 
     private void handleConnection(BluetoothDevice device) {
         Log.d(TAG, "Device connected: " + device.getAddress());
+        keyCallback.onConnected();
     }
 
     private void handleDisconnection(BluetoothDevice device) {

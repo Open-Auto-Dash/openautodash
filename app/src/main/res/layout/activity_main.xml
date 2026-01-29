@@ -11,30 +11,27 @@
         android:id="@+id/fragmentRightContainer"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:elevation="-5dp"
         app:layout_constraintBottom_toTopOf="@+id/bottomNavBarContainer"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="@+id/fragmentLeftContainer"
+        app:layout_constraintStart_toEndOf="@+id/fragmentLeftContainer"
         app:layout_constraintTop_toTopOf="parent" >
     </RelativeLayout>
 
     <RelativeLayout
         android:id="@+id/menuContainer"
         android:layout_width="0dp"
-        android:layout_height="400dp"
-        android:visibility="invisible"
+        android:layout_height="565dp"
+        android:visibility="visible"
         app:layout_constraintBottom_toTopOf="@+id/bottomNavBarContainer"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="@+id/fragmentRightContainer"/>
+        app:layout_constraintStart_toStartOf="@+id/fragmentRightContainer" />
 
 
     <RelativeLayout
         android:id="@+id/fragmentLeftContainer"
-        android:layout_width="0dp"
+        android:layout_width="385dp"
         android:layout_height="0dp"
-        android:background="@color/colorBackgroundDefault"
         app:layout_constraintBottom_toTopOf="@+id/bottomNavBarContainer"
-        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
@@ -48,7 +45,6 @@
         app:layout_constraintEnd_toStartOf="@+id/fragmentRightContainer"
         app:layout_constraintTop_toTopOf="parent" />
 
-
     <TextView
         android:id="@+id/brightesscrap"
         android:layout_width="wrap_content"
@@ -59,12 +55,22 @@
         app:layout_constraintStart_toEndOf="@+id/iv_main_lte_signal"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <ImageView
+        android:id="@+id/iv_m_bluetooth_status"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintStart_toEndOf="@+id/fragmentLeftContainer"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/ic_bluetooth" />
+
     <TextView
         android:id="@+id/tv_m_clock"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:layout_marginEnd="8dp"
+        android:layout_marginEnd="24dp"
         android:text="12:17 PM"
         android:textAlignment="textEnd"
         android:textAppearance="@style/TextAppearance.AppCompat.Body2"
@@ -73,16 +79,6 @@
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
-
-    <ImageView
-        android:id="@+id/iv_m_bluetooth_status"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/ic_bluetooth" />
 
     <TextView
         android:id="@+id/tv_main_signal_network_type"
@@ -107,7 +103,7 @@
         android:id="@+id/tv_main_temp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
+        android:layout_marginEnd="32dp"
         android:onClick="updateTemp"
         android:text="20°C"
         android:textAppearance="@style/TextAppearance.AppCompat.Body1"
@@ -115,6 +111,7 @@
         app:layout_constraintBottom_toBottomOf="@+id/tv_m_clock"
         app:layout_constraintEnd_toStartOf="@+id/tv_m_clock"
         app:layout_constraintTop_toTopOf="@+id/tv_m_clock" />
+
 
     <ImageView
         android:id="@+id/iv_m_wind_dir"
@@ -126,30 +123,32 @@
         app:layout_constraintTop_toTopOf="@+id/tv_main_temp"
         app:srcCompat="@drawable/wind_direction" />
 
+
     <HorizontalScrollView
         android:id="@+id/bottomNavBarContainer"
         android:layout_width="0dp"
         android:layout_height="100dp"
+        android:fillViewport="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="wrap_content"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:minWidth="600dp">
 
             <View
                 android:id="@+id/bottomNavBar"
-                android:layout_width="1300dp"
+                android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:background="@android:color/black"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />
 
-
             <ImageView
                 android:id="@+id/iv_bottom_nav_bar_settings"
-                android:layout_width="0dp"
+                android:layout_width="152dp"
                 android:layout_height="match_parent"
                 android:padding="30dp"
                 app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
@@ -305,15 +304,6 @@
                 app:srcCompat="@drawable/ic_defrost_front" />
 
             <ImageView
-                android:id="@+id/iv_bottom_nav_bar_vol"
-                android:layout_width="0dp"
-                android:layout_height="100dp"
-                android:padding="32dp"
-                app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
-                app:layout_constraintEnd_toEndOf="@+id/bottomNavBar"
-                app:srcCompat="@drawable/ic_sound_3" />
-
-            <ImageView
                 android:id="@+id/iv_bottom_nav_bar_vol_up"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
@@ -321,9 +311,10 @@
                 android:paddingBottom="30dp"
                 app:layout_constraintBottom_toTopOf="@+id/iv_bottom_nav_bar_vol_down"
                 app:layout_constraintEnd_toEndOf="@+id/bottomNavBar"
-                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintHorizontal_bias="0.0"
                 app:layout_constraintStart_toStartOf="@+id/iv_bottom_nav_bar_vol"
                 app:layout_constraintTop_toTopOf="@id/bottomNavBar"
+                android:background="@drawable/bg_glow_effect"
                 app:srcCompat="@drawable/ic_arrow_up" />
 
             <ImageView
@@ -337,8 +328,20 @@
                 app:layout_constraintHorizontal_bias="0.5"
                 app:layout_constraintStart_toStartOf="@+id/iv_bottom_nav_bar_vol"
                 app:layout_constraintTop_toBottomOf="@+id/iv_bottom_nav_bar_vol_up"
+                android:background="@drawable/bg_glow_effect"
                 app:srcCompat="@drawable/ic_arrow_down" />
+
+            <ImageView
+                android:id="@+id/iv_bottom_nav_bar_vol"
+                android:layout_width="0dp"
+                android:layout_height="100dp"
+                android:padding="32dp"
+                app:layout_constraintBottom_toBottomOf="@+id/bottomNavBar"
+                app:layout_constraintEnd_toEndOf="@+id/bottomNavBar"
+                app:srcCompat="@drawable/ic_sound_3" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
     </HorizontalScrollView>
+
+
 </androidx.constraintlayout.widget.ConstraintLayout>

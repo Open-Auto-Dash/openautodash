@@ -18,9 +18,9 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.GnssStatus;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.Uri;
-import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -33,21 +33,16 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
-import androidx.lifecycle.MutableLiveData;
 
 import com.openautodash.MainActivity;
 import com.openautodash.R;
 import com.openautodash.bluetooth.BLEAdvertiser;
 import com.openautodash.enums.VehicleState;
 import com.openautodash.interfaces.BluetoothKeyCallback;
-import com.openautodash.interfaces.VehicleControlCallback;
-import com.openautodash.object.LastKnownCameraPosition;
-import com.openautodash.utilities.LocalSettings;
-import com.openautodash.utilities.LocationListener;
+import com.openautodash.repositorys.VehicleRepository;
 
 import java.util.HashMap;
 import java.util.Map;
-
 
 public class MainForegroundService extends Service implements SensorEventListener, BluetoothKeyCallback, BLEAdvertiser.MessageHandler {
     private static final String TAG = "MainForegroundService";
@@ -55,25 +50,163 @@ public class MainForegroundService extends Service implements SensorEventListene
     private static final int NOTIFICATION_ID = 1;
     private static final long ALARM_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
-    private LocalSettings settings;
+    // The Single Source of Truth
+    private VehicleRepository repository;
+
+    // Hardware Managers
     private PowerManager.WakeLock wakeLock;
     private PowerManager.WakeLock screenWakeLock;
     private BLEAdvertiser bleAdvertiser;
-
     private SensorManager sensorManager;
-    double ax, ay, az;   // acceleration values
-
     private LocationManager locationManager;
+
+    // Location
     private LocationListener locationListener;
-    private MutableLiveData<Location> locationLiveData = new MutableLiveData<>();
     private GnssStatus.Callback gnssCallback;
-    private GnssStatus gnssStatus;
 
-    private MutableLiveData<Integer> keyVisible = new MutableLiveData<>();
-    private VehicleState vehicleState = VehicleState.Dead;
-    private Handler handler = new Handler();
+    // State
+    private VehicleState vehicleState = VehicleState.Idle;
+    private final Handler handler = new Handler();
 
-    private VehicleControlCallback vehicleControlCallback;
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        Log.d(TAG, "onCreate");
+
+        // Initialize Repository
+        repository = VehicleRepository.getInstance(getApplicationContext());
+
+        // Allow strict mode for disk reads if necessary during init
+        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(policy);
+
+        initializeHardware();
+        createNotificationChannel();
+        acquireWakeLocks();
+        requestBatteryOptimizationExemption();
+        setupPeriodicAlarm();
+
+        // Start BLE Advertising
+        bleAdvertiser = new BLEAdvertiser(this, this, this);
+        bleAdvertiser.startAdvertising();
+    }
+
+    private void initializeHardware() {
+        // 1. Sensors (Accelerometer AND Light)
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+
+        // Register Accelerometer (moved from original Service logic)
+        Sensor accel = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        if (accel != null) {
+            sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+
+        // Register Light Sensor (moved from MainActivity logic)
+        // Now the service handles brightness data collection even if the UI is paused
+        Sensor light = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        if (light != null) {
+            sensorManager.registerListener(this, light, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+
+        // 2. Location
+        locationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
+
+        // Define the listener to pump data straight to the Repository
+        locationListener = new LocationListener() {
+            @Override
+            public void onLocationChanged(@NonNull Location location) {
+                // Update the Repository
+                repository.updateLocation(location);
+
+                // Also broadcast for legacy systems if needed, or internal logic
+                Log.v(TAG, "Location updated: " + location.getSpeed());
+            }
+
+            @Override
+            public void onProviderEnabled(@NonNull String provider) {}
+            @Override
+            public void onProviderDisabled(@NonNull String provider) {}
+        };
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.d(TAG, "onStartCommand");
+
+        // Start Foreground immediately
+        startForeground(NOTIFICATION_ID, createNotification());
+
+        // Start Loops
+        handler.post(vehicleStateRunnable);
+        startLocationUpdates(1000, 0);
+
+        return START_STICKY;
+    }
+
+    // ============================================================================================
+    // REGION: Sensor Handling (Accelerometer & Light)
+    // ============================================================================================
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            // Send raw accel data to Repository
+            repository.updateAccelerometer(event.values[0], event.values[1], event.values[2]);
+        }
+        else if (event.sensor.getType() == Sensor.TYPE_LIGHT) {
+            // Send raw light data to Repository
+            // The Repository handles the "Moving Average" buffer logic now
+            repository.updateAmbientLight(event.values[0]);
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // Not used
+    }
+
+    // ============================================================================================
+    // REGION: Location Handling
+    // ============================================================================================
+
+    @SuppressLint("MissingPermission")
+    private void startLocationUpdates(int minTimeMs, int minDistanceM) {
+        if (!hasLocationPermissions()) {
+            Log.e(TAG, "Missing location permissions");
+            return;
+        }
+
+        try {
+            locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    minTimeMs,
+                    minDistanceM,
+                    locationListener
+            );
+
+            // Optional: GNSS Status for advanced debugging
+            gnssCallback = new GnssStatus.Callback() {
+                @Override
+                public void onSatelliteStatusChanged(@NonNull GnssStatus status) {
+                    super.onSatelliteStatusChanged(status);
+                    // Could pump satellite count to Repo if needed
+                }
+            };
+            locationManager.registerGnssStatusCallback(gnssCallback, null);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting location updates", e);
+        }
+    }
+
+    private boolean hasLocationPermissions() {
+        return ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    // ============================================================================================
+    // REGION: BLE & Vehicle Control
+    // ============================================================================================
 
     @Override
     public void onRssiUpdate(BluetoothDevice device, int rssi) {
@@ -82,7 +215,7 @@ public class MainForegroundService extends Service implements SensorEventListene
 
     @Override
     public void onLocationPin(double latitude, double longitude, String label) {
-        // Broadcast location pin to MainActivity or handle as needed
+        // If the Key Fob sends a "Pin Location" command, we can handle it here
         Intent intent = new Intent("location_pin_received");
         intent.putExtra("latitude", latitude);
         intent.putExtra("longitude", longitude);
@@ -92,108 +225,109 @@ public class MainForegroundService extends Service implements SensorEventListene
 
     @Override
     public void onVehicleCommand(String command, String[] params) {
-        if (vehicleControlCallback == null) return;
+        // This receives commands from the BLE device (Unlock, Start, etc.)
+        // Since we removed the Callback to Activity, we should broadcast this
+        // or update a specific LiveData in the Repository if the UI needs to react.
+        Log.d(TAG, "Received Vehicle Command: " + command);
 
         switch (command.toUpperCase()) {
             case "LOCK":
-                vehicleControlCallback.onLockCommand();
+                // Handle lock logic (e.g., trigger relays)
                 break;
             case "UNLOCK":
-                vehicleControlCallback.onUnlockCommand();
+                // Handle unlock logic
+                wakeUpDevice(); // Usually we want to wake screen on unlock
                 break;
             case "START":
-                vehicleControlCallback.onStartCommand();
+                // Handle remote start
                 break;
-            case "STOP":
-                vehicleControlCallback.onStopCommand();
-                break;
-            case "LIGHTS":
-                if (params.length > 0) {
-                    boolean turnOn = Boolean.parseBoolean(params[0]);
-                    vehicleControlCallback.onLightsCommand(turnOn);
-                }
-                break;
-            default:
-                Log.w(TAG, "Unknown vehicle command: " + command);
         }
     }
 
     @Override
     public void onTelemetryRequest(BluetoothDevice device) {
-        // Gather current telemetry data
-        Map<String, String> telemetryData = new HashMap<>();
-        telemetryData.put("speed", "0"); // Replace with actual speed
-        telemetryData.put("rpm", "0"); // Replace with actual RPM
-        telemetryData.put("temp", "0"); // Replace with actual temperature
-        telemetryData.put("fuel", "0"); // Replace with actual fuel level
-        telemetryData.put("voltage", "0"); // Replace with actual voltage
+        // The BLE Device is asking for data. We pull fresh data from the Repository.
+        VehicleRepository.VehicleTelemetry telemetry = repository.getLiveTelemetry().getValue();
+        Location loc = repository.getLocation().getValue();
 
-        // Add accelerometer data
-        telemetryData.put("accel_x", String.valueOf(round(ax, 3)));
-        telemetryData.put("accel_y", String.valueOf(round(ay, 3)));
-        telemetryData.put("accel_z", String.valueOf(round(az, 3)));
+        Map<String, String> data = new HashMap<>();
 
-        // Add location data if available
-        Location location = locationLiveData.getValue();
-        if (location != null) {
-            telemetryData.put("lat", String.valueOf(location.getLatitude()));
-            telemetryData.put("lon", String.valueOf(location.getLongitude()));
-            telemetryData.put("alt", String.valueOf(location.getAltitude()));
-            telemetryData.put("speed_gps", String.valueOf(location.getSpeed()));
-            telemetryData.put("bearing", String.valueOf(location.getBearing()));
+        if (telemetry != null) {
+            data.put("speed", String.valueOf(telemetry.speed));
+            data.put("rpm", String.valueOf(telemetry.rpm));
+            data.put("accel_x", String.valueOf(round(telemetry.accelX, 3)));
+            data.put("accel_y", String.valueOf(round(telemetry.accelY, 3)));
+            data.put("accel_z", String.valueOf(round(telemetry.accelZ, 3)));
         }
 
-        // Send telemetry data through BLE
+        if (loc != null) {
+            data.put("lat", String.valueOf(loc.getLatitude()));
+            data.put("lon", String.valueOf(loc.getLongitude()));
+            data.put("alt", String.valueOf(loc.getAltitude()));
+            data.put("speed_gps", String.valueOf(loc.getSpeed()));
+            data.put("bearing", String.valueOf(loc.getBearing()));
+        }
+
         if (bleAdvertiser != null) {
-            bleAdvertiser.sendTelemetryData(telemetryData);
-        }
-    }
-
-    public void setVehicleControlCallback(VehicleControlCallback callback) {
-        this.vehicleControlCallback = callback;
-    }
-
-    public void sendVehicleState(VehicleState state) {
-        if (bleAdvertiser != null) {
-            bleAdvertiser.sendMessage("STATE:" + state.name());
-        }
-    }
-
-    public class MainForegroundServiceBinder extends Binder {
-        public MainForegroundService getService() {
-            return MainForegroundService.this;
+            bleAdvertiser.sendTelemetryData(data);
         }
     }
 
     @Override
-    public void onCreate() {
-        super.onCreate();
-        Log.d(TAG, "onCreate");
-
-        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder()
-                .permitAll().build();
-        StrictMode.setThreadPolicy(policy);
-
-        initializeComponents();
-        createNotificationChannel();
-        acquireWakeLocks();
-        requestBatteryOptimizationExemption();
-        setupPeriodicAlarm();
-
-        bleAdvertiser = new BLEAdvertiser(this, this, this);
-        bleAdvertiser.startAdvertising();
+    public void onConnected() {
+        Log.d(TAG, "Bluetooth key connected");
+        repository.updateBluetoothState(true);
+        keepScreenOn(true);
     }
 
-    private void initializeComponents() {
-        settings = new LocalSettings(getApplicationContext());
+    @Override
+    public void onDisconnected() {
+        Log.d(TAG, "Bluetooth key disconnected");
+        repository.updateBluetoothState(false);
+        keepScreenOn(false);
+    }
 
-        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        sensorManager.registerListener(this,
-                sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
-                SensorManager.SENSOR_DELAY_NORMAL);
+    @Override
+    public void onDataReceived(String data) {
+        Log.d(TAG, "Raw data received: " + data);
+    }
 
-        locationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
-        locationListener = new LocationListener(locationLiveData);
+    // ============================================================================================
+    // REGION: System & Lifecycle
+    // ============================================================================================
+
+    private final Runnable vehicleStateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            // Reset accelerometer peaks in repository periodically if needed
+            // or perform state machine logic here.
+
+            // This is where you would calculate VehicleState (Parked, Driving)
+            // based on speed/rpm from the Repository and update the Repo back.
+
+            handler.postDelayed(this, 1000);
+        }
+    };
+
+    private void keepScreenOn(boolean on) {
+        if (on) {
+            if (!screenWakeLock.isHeld()) {
+                screenWakeLock.acquire();
+            }
+        } else {
+            if (screenWakeLock.isHeld()) {
+                screenWakeLock.release();
+            }
+        }
+    }
+
+    public void wakeUpDevice() {
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        if (powerManager != null && !powerManager.isInteractive()) {
+            Intent wakeIntent = new Intent(this, MainActivity.class);
+            wakeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(wakeIntent);
+        }
     }
 
     private void createNotificationChannel() {
@@ -203,11 +337,27 @@ public class MainForegroundService extends Service implements SensorEventListene
                     "OpenAutoDash Service",
                     NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Keeps OpenAutoDash running in background");
+            channel.setDescription("Background Vehicle Data Service");
             channel.setShowBadge(false);
             NotificationManager manager = getSystemService(NotificationManager.class);
             manager.createNotificationChannel(channel);
         }
+    }
+
+    private Notification createNotification() {
+        Intent notificationIntent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE
+        );
+
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("AutoDash Active")
+                .setContentText("Monitoring Vehicle Sensors")
+                .setSmallIcon(R.drawable.ic_my_location_black_24dp)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
+                .build();
     }
 
     private void acquireWakeLocks() {
@@ -239,6 +389,7 @@ public class MainForegroundService extends Service implements SensorEventListene
         }
     }
 
+    // Alarm logic for restarting service if it gets killed by OS
     private void setupPeriodicAlarm() {
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(this, MainForegroundService.class);
@@ -246,255 +397,50 @@ public class MainForegroundService extends Service implements SensorEventListene
                 this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    scheduleExactAlarm(alarmManager, pendingIntent);
-                } else {
-                    // Fall back to inexact alarm
-                    alarmManager.setRepeating(
-                            AlarmManager.RTC_WAKEUP,
-                            System.currentTimeMillis() + ALARM_INTERVAL,
-                            ALARM_INTERVAL,
-                            pendingIntent
-                    );
-                }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + ALARM_INTERVAL, pendingIntent);
             } else {
-                scheduleExactAlarm(alarmManager, pendingIntent);
+                alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + ALARM_INTERVAL, ALARM_INTERVAL, pendingIntent);
             }
-        } catch (SecurityException e) {
-            Log.e(TAG, "Security exception when scheduling alarm", e);
-            // Fall back to inexact alarm
-            alarmManager.setRepeating(
-                    AlarmManager.RTC_WAKEUP,
-                    System.currentTimeMillis() + ALARM_INTERVAL,
-                    ALARM_INTERVAL,
-                    pendingIntent
-            );
-        }
-    }
-
-    private void scheduleExactAlarm(AlarmManager alarmManager, PendingIntent pendingIntent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    System.currentTimeMillis() + ALARM_INTERVAL,
-                    pendingIntent
-            );
         } else {
-            alarmManager.setExact(
-                    AlarmManager.RTC_WAKEUP,
-                    System.currentTimeMillis() + ALARM_INTERVAL,
-                    pendingIntent
-            );
-        }
-    }
-
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "onStartCommand");
-        startForeground(NOTIFICATION_ID, createNotification());
-
-        handler.post(serviceRunnable);
-        setLocationListener(1000, 0);
-
-        return START_STICKY;
-    }
-
-    private Notification createNotification() {
-        Intent notificationIntent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-                this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE
-        );
-
-        return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("OpenAutoDash Active")
-                .setContentText("Running in background")
-                .setSmallIcon(R.drawable.ic_my_location_black_24dp)
-                .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setOngoing(true)
-                .build();
-    }
-
-    private boolean setLocationListener(int minTimMs, int minDistanceM) {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
-                PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) !=
-                        PackageManager.PERMISSION_GRANTED) {
-            return false;
-        }
-
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTimMs, minDistanceM, locationListener);
-
-        gnssCallback = new GnssStatus.Callback() {
-            @Override
-            public void onStarted() {
-                Log.d(TAG, "onStarted: gnss");
-                super.onStarted();
-            }
-
-            @Override
-            public void onStopped() {
-                Log.d(TAG, "onStopped: gnss");
-                super.onStopped();
-            }
-
-            @Override
-            public void onFirstFix(int ttffMillis) {
-                Log.d(TAG, "onFirstFix: gnss");
-                super.onFirstFix(ttffMillis);
-            }
-
-            @Override
-            public void onSatelliteStatusChanged(@NonNull GnssStatus status) {
-                super.onSatelliteStatusChanged(status);
-                Log.d(TAG, "onSatelliteStatusChanged: gnss");
-                gnssStatus = status;
-
-                Intent intent = new Intent("gnss_update");
-                sendBroadcast(intent);
-            }
-        };
-        return true;
-    }
-
-    private final Runnable serviceRunnable = new Runnable() {
-        @Override
-        public void run() {
-            Log.d(TAG, "onSensorChanged: X:" + round(ax, 3) + " Y:" + round(ay, 3) + " Z:" + round(az, 3));
-            ax = 0;
-            ay = 0;
-            az = 0;
-
-            switch (vehicleState) {
-                case Dead:    // Dead     | GPS off
-                    break;
-                case Sleep:   // Sleep    | GPS, 10m
-                    break;
-                case Idle:    // Idle     | GPS, 1m
-                    break;
-                case Powered: // Powered  | GPS, 10s
-                    break;
-                case Running: // Running  | GPS, 1s
-                    break;
-                case Driving: // Driving  | GPS, 1s
-                    break;
-            }
-
-            handler.postDelayed(this, 1000);
-        }
-    };
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            if ((int)event.values[0] > (int)ax) {
-                ax = event.values[0];
-            }
-            if ((int)event.values[1] > (int)ay) {
-                ay = event.values[1];
-            }
-            if ((int)event.values[2] > (int)az) {
-                az = event.values[2];
-            }
-        }
-    }
-
-    @Override
-    public void onConnected() {
-        Log.d(TAG, "Bluetooth key connected");
-        keyVisible.postValue(1);
-        keepScreenOn(true);
-    }
-
-    @Override
-    public void onDisconnected() {
-        Log.d(TAG, "Bluetooth key disconnected");
-        keyVisible.postValue(0);
-        keepScreenOn(false);
-    }
-
-    @Override
-    public void onDataReceived(String data) {
-        Log.d(TAG, "Raw data received: " + data);
-    }
-
-    private void keepScreenOn(boolean on) {
-        if (on) {
-            if (!screenWakeLock.isHeld()) {
-                screenWakeLock.acquire();
-            }
-            Log.d(TAG, "Screen keep on enabled");
-        } else {
-            if (screenWakeLock.isHeld()) {
-                screenWakeLock.release();
-            }
-            Log.d(TAG, "Screen keep on disabled");
-        }
-    }
-
-    public void wakeUpDevice() {
-        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-        if (powerManager != null && !powerManager.isInteractive()) {
-            Log.d(TAG, "wakeUpDevice");
-            Intent wakeIntent = new Intent(this, MainActivity.class);
-            wakeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(wakeIntent);
-        } else {
-            Log.d(TAG, "Device already awake");
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + ALARM_INTERVAL, pendingIntent);
         }
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        cleanup();
 
-        // Request restart
-        Intent restartIntent = new Intent("com.openautodash.RestartService");
-        sendBroadcast(restartIntent);
-    }
+        // Cleanup Hardware
+        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        if (screenWakeLock != null && screenWakeLock.isHeld()) screenWakeLock.release();
 
-    private void cleanup() {
-        if (wakeLock != null && wakeLock.isHeld()) {
-            wakeLock.release();
-        }
-        if (screenWakeLock != null && screenWakeLock.isHeld()) {
-            screenWakeLock.release();
-        }
-        if (bleAdvertiser != null) {
-            bleAdvertiser.stopAdvertising();
-        }
+        if (bleAdvertiser != null) bleAdvertiser.stopAdvertising();
+
         if (locationManager != null) {
             locationManager.removeUpdates(locationListener);
             if (gnssCallback != null) {
                 locationManager.unregisterGnssStatusCallback(gnssCallback);
             }
         }
+
         if (sensorManager != null) {
             sensorManager.unregisterListener(this);
         }
+
         handler.removeCallbacksAndMessages(null);
+
+        // Attempt restart
+        Intent restartIntent = new Intent("com.openautodash.RestartService");
+        sendBroadcast(restartIntent);
     }
 
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return new MainForegroundServiceBinder();
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        // Not used but required by SensorEventListener
-    }
-
-    public MutableLiveData<Location> getLocationLiveData() {
-        return locationLiveData;
-    }
-
-    public MutableLiveData<Integer> getBluetoothState() {
-        return keyVisible;
+        // We do not allow binding anymore. The UI must use the Repository.
+        return null;
     }
 
     private static double round(double value, int places) {
