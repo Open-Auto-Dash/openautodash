@@ -119,9 +119,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initializeWindow() {
-        // Force screen on + Immersive Sticky
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON |
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
 
         View decorView = getWindow().getDecorView();
         int uiOptions = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
@@ -183,11 +180,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 3. Bluetooth Status Icon
+        // 3. Bluetooth Status & Screen Logic
         repository.getBluetoothState().observe(this, isConnected -> {
             if (isConnected) {
+                // Key is here: Keep screen ON and show Blue Icon
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 bluetoothStatusIcon.setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.ic_bluetooth_nearby));
             } else {
+                // Key is gone: Let screen SLEEP and show Grey Icon
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 bluetoothStatusIcon.setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.ic_bluetooth));
             }
         });

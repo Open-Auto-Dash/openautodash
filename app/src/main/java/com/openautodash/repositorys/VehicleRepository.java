@@ -66,7 +66,6 @@ public class VehicleRepository implements WeatherUpdateCallback {
         liveTelemetry.setValue(new VehicleTelemetry());
 
         // Init brightness to the lowest setting initially to avoid nulls
-        // This might explain the "175" if your lowest setting is 175
         if (brightnessThresholds.length > 0) {
             float normalized = brightnessThresholds[0] / 255f;
             screenBrightness.setValue(normalized);
