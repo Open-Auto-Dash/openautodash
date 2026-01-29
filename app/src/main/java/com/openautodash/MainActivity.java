@@ -210,10 +210,37 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 5. Network Signal & Type
+        // 5. Location Data (Updates every second)
+        // FIX: We must observe location here to rotate the arrow when the CAR turns
+        repository.getLocation().observe(this, location -> {
+            if (location != null) {
+                updateWindDirection();
+            }
+        });
+
+        // 6. Network Signal & Type
         repository.getNetworkStatus().observe(this, status -> {
             updateNetworkUI(status);
         });
+    }
+
+    private void updateWindDirection() {
+        com.openautodash.object.Weather weather = repository.getWeather().getValue();
+        Location location = repository.getLocation().getValue();
+
+        if (weather != null && location != null) {
+            float windBearing = (float) weather.getWindDeg();
+            float carBearing = location.getBearing();
+
+            // Calculate relative angle (Wind - Car)
+            float relativeAngle = windBearing - carBearing;
+
+            // Normalize to 0-360
+            if (relativeAngle < 0) relativeAngle += 360;
+            if (relativeAngle > 360) relativeAngle -= 360;
+
+            windDirectionView.setRotation(relativeAngle);
+        }
     }
 
     private void updateNetworkUI(VehicleRepository.NetworkStatus status) {
