@@ -195,7 +195,7 @@ public class MainActivity extends AppCompatActivity {
         // 4. Weather & Wind Direction
         repository.getWeather().observe(this, weather -> {
             if (weather != null) {
-                tempView.setText(String.format(Locale.US, "%.0f°C", weather.getTemp()));
+                tempView.setText(String.format(Locale.US, "%d°C", weather.getTemp()));
 
                 // Calculate relative wind direction based on Car Heading
                 Location currentLocation = repository.getLocation().getValue();

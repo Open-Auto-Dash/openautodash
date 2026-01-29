@@ -10,58 +10,67 @@ import androidx.lifecycle.MutableLiveData;
 
 import com.openautodash.database.DatabaseRepository;
 import com.openautodash.database.TelemetryLog;
+import com.openautodash.interfaces.WeatherUpdateCallback;
 import com.openautodash.utilities.LocalSettings;
 import com.openautodash.object.Weather;
+import com.openautodash.utilities.WeatherManager;
 
 import java.util.List;
 
-public class VehicleRepository {
+public class VehicleRepository implements WeatherUpdateCallback {
     private static final String TAG = "VehicleRepository";
     private static VehicleRepository instance;
 
     // Dependencies
     private final LocalSettings localSettings;
     private final DatabaseRepository databaseRepository;
+    private final WeatherManager weatherManager;
 
-    // --- Live Data Sources (The Single Source of Truth) ---
-
-    // 1. Location & Weather
+    // --- Live Data Sources ---
     private final MutableLiveData<Location> currentLocation = new MutableLiveData<>();
     private final MutableLiveData<Weather> currentWeather = new MutableLiveData<>();
-
-    // 2. Display Settings (Brightness & Theme)
     private final MutableLiveData<Float> screenBrightness = new MutableLiveData<>();
     private final MutableLiveData<Boolean> isNightMode = new MutableLiveData<>();
-
-    // 3. Connectivity
     private final MutableLiveData<Boolean> isBluetoothConnected = new MutableLiveData<>();
     private final MutableLiveData<NetworkStatus> networkStatus = new MutableLiveData<>();
-
-    // 4. Vehicle Telemetry (Sensors & CAN)
     private final MutableLiveData<VehicleTelemetry> liveTelemetry = new MutableLiveData<>();
 
-    // Internal State for Brightness Calculation
+    // Internal State
     private final int[] brightnessBuffer = {0, 0, 0, 0, 0, 0, 0, 0, 0};
     private long lastBrightnessTime = 0;
-    private int[] brightnessThresholds; // From LocalSettings
-    private int nightModeThreshold;     // From LocalSettings
+    private int[] brightnessThresholds;
+    private int nightModeThreshold;
 
-    // Internal State for Accelerometer
+    // Accelerometer State
     private double ax, ay, az;
 
+    // Weather Throttling
+    private Location lastWeatherLocation;
+    private long lastWeatherTime = 0;
+
     private VehicleRepository(Context context) {
-        // Initialize local persistence helpers
         this.localSettings = new LocalSettings(context);
         this.databaseRepository = new DatabaseRepository((Application) context.getApplicationContext());
 
-        // Load initial settings into memory
+        // Initialize your existing WeatherManager
+        // Passing 'this' because VehicleRepository implements WeatherUpdateCallback
+        this.weatherManager = new WeatherManager(context, null, this);
+
+        // Load settings
         this.brightnessThresholds = localSettings.getBrightnessSetting();
         this.nightModeThreshold = localSettings.getNightModeSetPoint();
 
-        // Initialize default states to prevent null pointer exceptions in UI
+        // Init defaults
         isNightMode.setValue(localSettings.getIsNight());
         networkStatus.setValue(new NetworkStatus(0, 0, false));
         liveTelemetry.setValue(new VehicleTelemetry());
+
+        // Init brightness to the lowest setting initially to avoid nulls
+        // This might explain the "175" if your lowest setting is 175
+        if (brightnessThresholds.length > 0) {
+            float normalized = brightnessThresholds[0] / 255f;
+            screenBrightness.setValue(normalized);
+        }
     }
 
     public static synchronized VehicleRepository getInstance(Context context) {
@@ -71,16 +80,16 @@ public class VehicleRepository {
         return instance;
     }
 
+    public void reloadSettings() {
+        this.brightnessThresholds = localSettings.getBrightnessSetting();
+        this.nightModeThreshold = localSettings.getNightModeSetPoint();
+    }
+
     // ============================================================================================
-    // REGION: Brightness & Display Logic
+    // REGION: Brightness Logic
     // ============================================================================================
 
-    /**
-     * Ingests raw lux values from the light sensor.
-     * Applies a smoothing buffer and calculates the target screen brightness (0.0 - 1.0).
-     */
     public void updateAmbientLight(float rawLux) {
-        // Throttle updates to avoid flickering, similar to previous implementation
         if (System.currentTimeMillis() - lastBrightnessTime <= 1000) {
             return;
         }
@@ -105,8 +114,7 @@ public class VehicleRepository {
 
     private void calculateTargetBrightness(int avgLux) {
         int targetValue;
-
-        // Select brightness tier based on averaged lux
+        // Logic matches your original MainActivity logic
         if (avgLux > 500) {
             targetValue = brightnessThresholds[5];
         } else if (avgLux > 400) {
@@ -127,20 +135,13 @@ public class VehicleRepository {
     }
 
     private void determineNightMode(int avgLux) {
-        int currentMode = AppCompatDelegate.getDefaultNightMode();
-        boolean shouldBeNight = false;
+        boolean shouldBeNight = avgLux <= nightModeThreshold;
 
-        // Logic to prevent rapid toggling near the threshold
-        if (avgLux <= nightModeThreshold) {
-            shouldBeNight = true;
-        } else if (avgLux > nightModeThreshold + 30) { // Hysteresis of 30 lux
+        // Hysteresis logic
+        if (avgLux > nightModeThreshold + 30) {
             shouldBeNight = false;
-        } else {
-            // In the hysteresis zone, keep current state
-            return;
         }
 
-        // Only post update if state actually changed
         Boolean current = isNightMode.getValue();
         if (current == null || current != shouldBeNight) {
             isNightMode.postValue(shouldBeNight);
@@ -148,64 +149,63 @@ public class VehicleRepository {
     }
 
     // ============================================================================================
+    // REGION: Location & Weather
+    // ============================================================================================
+
+    public void updateLocation(Location location) {
+        currentLocation.postValue(location);
+
+        // Trigger Weather Manager
+        // Logic: Update if we moved > 2km OR it's been > 15 minutes
+        // This prevents spamming your API key on every GPS update
+        boolean shouldUpdate = false;
+
+        if (lastWeatherLocation == null) {
+            shouldUpdate = true;
+        } else {
+            float distance = location.distanceTo(lastWeatherLocation);
+            long timeDiff = System.currentTimeMillis() - lastWeatherTime;
+
+            if (distance > 2000 || timeDiff > 15 * 60 * 1000) {
+                shouldUpdate = true;
+            }
+        }
+
+        if (shouldUpdate) {
+            weatherManager.getCurrentWeather(location);
+            lastWeatherLocation = location;
+            lastWeatherTime = System.currentTimeMillis();
+        }
+    }
+
+    // WeatherUpdateCallback implementation
+    @Override
+    public void onComplete(Weather weather) {
+        // Sync logic from your original code
+        if (weatherManager != null) {
+            weatherManager.syncWeather();
+        }
+        currentWeather.postValue(weather);
+    }
+
+    // ============================================================================================
     // REGION: Telemetry & Sensors
     // ============================================================================================
 
     public void updateAccelerometer(float x, float y, float z) {
-        // Capture peaks
         if (Math.abs(x) > Math.abs(ax)) ax = x;
         if (Math.abs(y) > Math.abs(ay)) ay = y;
         if (Math.abs(z) > Math.abs(az)) az = z;
-
         updateTelemetryObject();
-    }
-
-    public void resetAccelerometerPeaks() {
-        ax = 0;
-        ay = 0;
-        az = 0;
-        updateTelemetryObject();
-    }
-
-    public void updateVehicleSpeed(int speed) {
-        VehicleTelemetry current = liveTelemetry.getValue();
-        if (current != null) {
-            current.speed = speed;
-            liveTelemetry.postValue(current);
-        }
     }
 
     private void updateTelemetryObject() {
         VehicleTelemetry current = liveTelemetry.getValue();
         if (current == null) current = new VehicleTelemetry();
-
         current.accelX = ax;
         current.accelY = ay;
         current.accelZ = az;
-
         liveTelemetry.postValue(current);
-    }
-
-    // Handles persistent storage for telemetry logs
-    public void saveTelemetryLog(TelemetryLog log) {
-        databaseRepository.insertTelemetryLog(log);
-    }
-
-    public LiveData<List<TelemetryLog>> getHistoryLogs() {
-        return databaseRepository.getTelemetryLogs();
-    }
-
-    // ============================================================================================
-    // REGION: Connectivity & Location
-    // ============================================================================================
-
-    public void updateLocation(Location location) {
-        currentLocation.postValue(location);
-        // If we needed to auto-save track points to DB, we would do it here
-    }
-
-    public void updateWeather(Weather weather) {
-        currentWeather.postValue(weather);
     }
 
     public void updateBluetoothState(boolean connected) {
@@ -217,7 +217,7 @@ public class VehicleRepository {
     }
 
     // ============================================================================================
-    // REGION: Getters for ViewModel
+    // REGION: Getters
     // ============================================================================================
 
     public LiveData<Float> getScreenBrightness() { return screenBrightness; }
@@ -228,16 +228,10 @@ public class VehicleRepository {
     public LiveData<NetworkStatus> getNetworkStatus() { return networkStatus; }
     public LiveData<VehicleTelemetry> getLiveTelemetry() { return liveTelemetry; }
 
-    // ============================================================================================
-    // REGION: Data Classes
-    // ============================================================================================
-
-    /**
-     * Simple container for network state to avoid observing multiple LiveDatas for one icon
-     */
+    // Data Classes
     public static class NetworkStatus {
-        public final int signalStrength; // 0-5
-        public final int networkType;    // LTE, 3G, etc
+        public final int signalStrength;
+        public final int networkType;
         public final boolean isWifi;
 
         public NetworkStatus(int signalStrength, int networkType, boolean isWifi) {
@@ -247,9 +241,6 @@ public class VehicleRepository {
         }
     }
 
-    /**
-     * Container for real-time vehicle stats
-     */
     public static class VehicleTelemetry {
         public int speed = 0;
         public int rpm = 0;
