@@ -1,8 +1,7 @@
 package com.openautodash.ui;
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog; // Added for the popup
-import android.content.Context;
+import android.app.AlertDialog;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -11,26 +10,18 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
-import android.view.inputmethod.InputMethodManager;
-import android.widget.EditText;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -46,43 +37,28 @@ import com.google.android.libraries.navigation.RoutingOptions;
 import com.google.android.libraries.navigation.SupportNavigationFragment;
 import com.google.android.libraries.navigation.TimeAndDistance;
 import com.google.android.libraries.navigation.Waypoint;
-import com.google.android.libraries.places.api.model.Place;
+import com.openautodash.MapViewModel;
 import com.openautodash.R;
-import com.openautodash.adapters.SearchAdapter;
-import com.openautodash.object.PlaceSearchResult;
 import com.openautodash.repositorys.VehicleRepository;
-import com.openautodash.utilities.LocationSearchManager;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
-public class MapFragment extends Fragment implements LocationSearchManager.LocationSearchCallback {
-
+public class MapFragment extends Fragment {
     private static final String TAG = "MapFragment";
 
     private Navigator mNavigator;
     private SupportNavigationFragment mNavFragment;
     private VehicleRepository vehicleRepository;
+    private MapViewModel viewModel; // The Bridge
 
-    // Search & UI
-    private LocationSearchManager searchManager;
-    private EditText searchBar;
-    private RecyclerView searchResultsRv;
-    private SearchAdapter searchAdapter;
-    private ConstraintLayout navInfoHeader;
-
-    // Custom Nav Stats
-    private TextView tvEta, tvDistance, tvTime, btnExitNav;
-
-    // Map State & Camera Logic
+    // State
     private boolean isSdkInitialized = false;
     private Marker customMarker;
     private boolean isNavigating = false;
-    private boolean mapMoving = false;
-
-    // Listener reference
+    private boolean mapMoving = false; // Used for "Free Drive" camera control
     private Navigator.RemainingTimeOrDistanceChangedListener navListener;
 
     public MapFragment() {}
@@ -91,103 +67,48 @@ public class MapFragment extends Fragment implements LocationSearchManager.Locat
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         vehicleRepository = VehicleRepository.getInstance(requireContext());
-        searchManager = new LocationSearchManager(requireContext());
+        // Link to the Shared ViewModel
+        viewModel = new ViewModelProvider(requireActivity()).get(MapViewModel.class);
     }
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        // This layout can now be empty or just a FrameLayout container,
+        // as the map itself is injected via ChildFragmentManager.
+        // We use fragment_map still, but ignoring the old UI elements inside it.
         return inflater.inflate(R.layout.fragment_map, container, false);
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        initViews(view);
         setupNavigationFragment();
         initializeNavigationSdk();
+        setupViewModelObservers();
     }
 
-    private void initViews(View view) {
-        searchBar = view.findViewById(R.id.et_search_bar);
-        searchResultsRv = view.findViewById(R.id.rv_search_results);
-        navInfoHeader = view.findViewById(R.id.cl_nav_info_header);
-
-        tvEta = view.findViewById(R.id.tv_nav_eta);
-        tvDistance = view.findViewById(R.id.tv_nav_distance);
-        tvTime = view.findViewById(R.id.tv_nav_time);
-        btnExitNav = view.findViewById(R.id.btn_exit_nav);
-
-        searchResultsRv.setLayoutManager(new LinearLayoutManager(getContext()));
-        searchAdapter = new SearchAdapter(this::onPlaceSuggestionClicked);
-        searchResultsRv.setAdapter(searchAdapter);
-
-        searchBar.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (s.length() > 2) {
-                    searchManager.searchPlaces(s.toString(), MapFragment.this);
-                } else {
-                    searchResultsRv.setVisibility(View.GONE);
-                }
+    private void setupViewModelObservers() {
+        // 1. Listen for Start Navigation Command (From Overlay Fragment)
+        viewModel.getStartNavigationCommand().observe(getViewLifecycleOwner(), waypoint -> {
+            if (waypoint != null) {
+                executeStartNavigation(waypoint);
             }
-            @Override public void afterTextChanged(Editable s) {}
         });
 
-        btnExitNav.setOnClickListener(v -> stopNavigation());
+        // 2. Listen for Stop Navigation Command (From Overlay Fragment)
+        viewModel.getStopNavigationCommand().observe(getViewLifecycleOwner(), stop -> {
+            if (stop != null && stop) {
+                executeStopNavigation();
+            }
+        });
     }
 
-    // --- SEARCH CALLBACKS ---
-    @Override
-    public void onSearchResults(List<PlaceSearchResult> results) {
-        if (results != null && !results.isEmpty()) {
-            searchAdapter.updateData(results);
-            searchResultsRv.setVisibility(View.VISIBLE);
-        } else {
-            searchResultsRv.setVisibility(View.GONE);
-        }
-    }
-
-    @Override
-    public void onError(String message) {
-        Log.e(TAG, "Search Error: " + message);
-    }
-
-    @Override
-    public void onPlaceSelected(Place place) {}
-
-    private void onPlaceSuggestionClicked(PlaceSearchResult result) {
-        hideKeyboard();
-        searchBar.clearFocus();
-        searchResultsRv.setVisibility(View.GONE);
-        searchBar.setText(result.primaryText());
-
-        // 1. Build Waypoint from Place ID
-        try {
-            Waypoint destination = Waypoint.builder().setPlaceIdString(result.placeId()).build();
-            startNavigation(destination);
-        } catch (Waypoint.UnsupportedPlaceIdException e) {
-            Log.e(TAG, "Invalid Place ID", e);
-        }
-    }
-
-    private void hideKeyboard() {
-        if (getActivity() != null && getView() != null) {
-            InputMethodManager imm = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
-        }
-    }
-
-    // --- SHARED NAVIGATION LOGIC ---
+    // --- NAVIGATION LOGIC ---
 
     @SuppressLint("MissingPermission")
-    private void startNavigation(Waypoint destination) {
+    private void executeStartNavigation(Waypoint destination) {
         if (mNavigator == null) return;
-
         isNavigating = true;
-
-        searchBar.setVisibility(View.GONE);
-        searchResultsRv.setVisibility(View.GONE);
-        navInfoHeader.setVisibility(View.VISIBLE);
 
         mNavigator.setDestination(destination, new RoutingOptions().travelMode(RoutingOptions.TravelMode.DRIVING))
                 .setOnResultListener(code -> {
@@ -198,12 +119,14 @@ public class MapFragment extends Fragment implements LocationSearchManager.Locat
 
                         if (mNavFragment != null) {
                             mNavFragment.getMapAsync(googleMap -> {
-                                // Calculate Padding: 325dp to pixels (Right side offset)
+                                // NAV MODE: Push center to the LEFT (325dp padding on Right)
                                 float scale = getResources().getDisplayMetrics().density;
                                 int paddingRight = (int) (325 * scale + 0.5f);
 
                                 googleMap.setPadding(0, 0, paddingRight, 0);
                                 googleMap.followMyLocation(GoogleMap.CameraPerspective.TILTED);
+
+                                // Push Google's UI out of the way
                                 moveTripViewPagerDown();
                             });
                         }
@@ -211,26 +134,22 @@ public class MapFragment extends Fragment implements LocationSearchManager.Locat
                 });
     }
 
-    private void stopNavigation() {
+    private void executeStopNavigation() {
         if (mNavigator != null) {
             mNavigator.stopGuidance();
-            mNavigator.clearDestinations();
+            mNavigator.clearDestinations(); // Clear the blue line
 
             if (navListener != null) {
                 mNavigator.removeRemainingTimeOrDistanceChangedListener(navListener);
                 navListener = null;
             }
         }
-
         isNavigating = false;
 
-        navInfoHeader.setVisibility(View.GONE);
-        searchBar.setVisibility(View.VISIBLE);
-        searchBar.setText("");
-
-        // Restore Free Drive Padding
+        // FREE DRIVE MODE: Restore Padding (Push center DOWN)
         if (mNavFragment != null) {
             mNavFragment.getMapAsync(googleMap -> {
+                // 400px bottom padding so car sits low
                 googleMap.setPadding(0, 400, 0, 0);
             });
         }
@@ -238,40 +157,38 @@ public class MapFragment extends Fragment implements LocationSearchManager.Locat
 
     private void setupNavListeners() {
         if (mNavigator == null) return;
-        navListener = new Navigator.RemainingTimeOrDistanceChangedListener() {
-            @Override
-            public void onRemainingTimeOrDistanceChanged() {
-                List<TimeAndDistance> list = mNavigator.getTimeAndDistanceList();
-                if (list != null && !list.isEmpty()) {
-                    TimeAndDistance td = list.get(0);
-                    updateNavStats(td.getSeconds(), td.getMeters());
-                }
+        navListener = () -> {
+            List<TimeAndDistance> list = mNavigator.getTimeAndDistanceList();
+            if (list != null && !list.isEmpty()) {
+                TimeAndDistance td = list.get(0);
+
+                // --- Format Data ---
+                long secondsRemaining = td.getSeconds();
+                long metersRemaining = td.getMeters();
+                String timeStr, distStr, etaStr;
+
+                // Time
+                int minutes = (int) (secondsRemaining / 60);
+                int hours = minutes / 60;
+                minutes = minutes % 60;
+                timeStr = (hours > 0) ? String.format("%dh %02dm", hours, minutes) : minutes + " min";
+
+                // Distance
+                distStr = (metersRemaining >= 1000)
+                        ? String.format("%.1f km", metersRemaining / 1000.0)
+                        : metersRemaining + " m";
+
+                // ETA
+                Calendar calendar = Calendar.getInstance();
+                calendar.add(Calendar.SECOND, (int) secondsRemaining);
+                SimpleDateFormat sdf = new SimpleDateFormat("h:mm a", Locale.US);
+                etaStr = sdf.format(calendar.getTime());
+
+                // --- PUSH TO VIEW MODEL (Overlay will update UI) ---
+                viewModel.updateNavStats(timeStr, distStr, etaStr);
             }
         };
         mNavigator.addRemainingTimeOrDistanceChangedListener(10, 50, navListener);
-    }
-
-    private void updateNavStats(long secondsRemaining, long metersRemaining) {
-        if (getActivity() == null) return;
-        getActivity().runOnUiThread(() -> {
-            int minutes = (int) (secondsRemaining / 60);
-            int hours = minutes / 60;
-            minutes = minutes % 60;
-
-            if (hours > 0) tvTime.setText(String.format("%dh %02dm", hours, minutes));
-            else tvTime.setText(minutes + " min");
-
-            if (metersRemaining >= 1000) {
-                tvDistance.setText(String.format("%.1f km", metersRemaining / 1000.0));
-            } else {
-                tvDistance.setText(metersRemaining + " m");
-            }
-
-            Calendar calendar = Calendar.getInstance();
-            calendar.add(Calendar.SECOND, (int) secondsRemaining);
-            SimpleDateFormat sdf = new SimpleDateFormat("h:mm a", Locale.US);
-            tvEta.setText(sdf.format(calendar.getTime()));
-        });
     }
 
     // --- MAP & CAMERA UPDATES ---
@@ -280,12 +197,14 @@ public class MapFragment extends Fragment implements LocationSearchManager.Locat
         vehicleRepository.getLocation().observe(getViewLifecycleOwner(), location -> {
             if (location == null) return;
 
+            // 1. Always update Marker
             if (customMarker != null) {
                 LatLng newPos = new LatLng(location.getLatitude(), location.getLongitude());
                 setMarker(customMarker, newPos);
                 customMarker.setRotation(location.getBearing());
             }
 
+            // 2. Control Camera (Only in Free Drive Mode)
             if (!isNavigating && mNavFragment != null) {
                 mNavFragment.getMapAsync(map -> {
                     updateFreeDriveCamera(map, location);
@@ -373,7 +292,7 @@ public class MapFragment extends Fragment implements LocationSearchManager.Locat
                 final View tripPager = rootView.findViewById(resId);
                 if (tripPager != null) {
                     float scale = getResources().getDisplayMetrics().density;
-                    final float translationY = 90 * scale;
+                    final float translationY = 90 * scale; // Adjust if needed
 
                     View current = tripPager;
                     while (current.getParent() instanceof ViewGroup) {
@@ -474,7 +393,7 @@ public class MapFragment extends Fragment implements LocationSearchManager.Locat
                 googleMap.setMyLocationEnabled(false);
                 googleMap.getUiSettings().setMyLocationButtonEnabled(false);
 
-                // 1. Set Free Drive Padding (Bottom Offset)
+                // 1. Set Free Drive Padding (Bottom Offset: 400px)
                 googleMap.setPadding(0, 400, 0, 0);
 
                 // 2. Add Long Click Listener for "Dropped Pin" Navigation
@@ -489,7 +408,9 @@ public class MapFragment extends Fragment implements LocationSearchManager.Locat
                                         .setLatLng(latLng.latitude, latLng.longitude)
                                         .setTitle("Dropped Pin")
                                         .build();
-                                startNavigation(destination);
+
+                                // Send Command to ViewModel (Overlay updates, Map starts)
+                                viewModel.requestStartNavigation(destination);
                             })
                             .setNegativeButton("Cancel", null)
                             .show();

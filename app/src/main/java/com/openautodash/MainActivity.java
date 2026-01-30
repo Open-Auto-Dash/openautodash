@@ -2,19 +2,15 @@ package com.openautodash;
 
 import android.Manifest;
 import android.app.Dialog;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
-import android.location.Location;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
-import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -24,7 +20,6 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
@@ -32,14 +27,12 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 
 import com.openautodash.repositorys.VehicleRepository;
-import com.openautodash.services.MainForegroundService; // Ensure correct import
+import com.openautodash.services.MainForegroundService;
 import com.openautodash.ui.MapFragment;
+import com.openautodash.ui.MapsOverlayFragment;
 import com.openautodash.ui.MenuFragment;
 import com.openautodash.ui.TelemetryFragment;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+import com.openautodash.ui.TopBarFragment;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -48,43 +41,14 @@ public class MainActivity extends AppCompatActivity {
     private static final int LOCATION_REQUEST_CODE = 350;
     private static final int WRITE_SETTINGS_REQUEST_CODE = 351;
 
-    // The Single Source of Truth
     private VehicleRepository repository;
-
-    // --- UI Components: Top Status Bar ---
-    private TextView clockView;
-    private TextView tempView;
-    private ImageView windDirectionView;
-    private ImageView bluetoothStatusIcon;
-    private ImageView lteStatusView;
-    private TextView lteNetworkType;
-    private TextView brightnessDebugView; // "brightesscrap"
-
-    // --- UI Components: Bottom Navigation ---
-    // (Container logic handled natively by XML now)
-    private ImageView menuMain;
-    private ImageView menuMusic;
-    private ImageView menuVolUp;
-    private ImageView menuVolDown;
-
-    // Climate Placeholders (Mapped from XML)
-    private ImageView menuSeatLeft;
-    private ImageView menuSeatRight;
-    private ImageView menuTempLeftUp;
-    private ImageView menuTempLeftDown;
-    private ImageView menuTempRightUp;
-    private ImageView menuTempRightDown;
-    private ImageView menuFan;
-    private ImageView menuDefrost;
-
-    // Fragments
-    private Fragment fragmentRight; // Map
-    private Fragment fragmentLeft;  // Telemetry
     private int currentMenuShowing = 0;
 
-    // System State
-    private BroadcastReceiver clockReceiver;
-    private final SimpleDateFormat clockFormat = new SimpleDateFormat("h:mm a", Locale.US);
+    // --- Bottom Bar UI Components (Static) ---
+    private ImageView menuMain, menuMusic, menuVolUp, menuVolDown;
+    private ImageView menuSeatLeft, menuSeatRight;
+    private ImageView menuTempLeftUp, menuTempLeftDown, menuTempRightUp, menuTempRightDown;
+    private ImageView menuFan, menuDefrost;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -94,55 +58,62 @@ public class MainActivity extends AppCompatActivity {
         // 1. Initialize Repository
         repository = VehicleRepository.getInstance(this);
 
-        // 2. Setup Window
-        initializeWindow();
+        // 2. Setup Window (Full Screen / Immersive)
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                        View.SYSTEM_UI_FLAG_FULLSCREEN |
+                        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+
         setContentView(R.layout.activity_main);
 
-        // 3. Bind Views
-        initializeViews();
-
-        // 4. Start Background Service
+        // 3. Start Background Service
         startHardwareService();
 
-        // 5. Connect UI to Data
+        // 4. Setup Observers (Global Night Mode)
         setupRepositoryObservers();
 
-        // 6. Setup Fragments
+        // 5. Setup Fragments (Map, Telemetry, TopBar)
         initializeFragments();
 
-        // 7. Setup Button Listeners
-        setupControlPanel();
+        // 6. Setup Bottom Bar (Static logic)
+        setupBottomBar();
 
-        // 8. Permissions
+        // 7. Permissions
         checkPermissions();
     }
 
-    private void initializeWindow() {
+    private void initializeFragments() {
+        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
 
-        View decorView = getWindow().getDecorView();
-        int uiOptions = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                | View.SYSTEM_UI_FLAG_FULLSCREEN
-                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
-        decorView.setSystemUiVisibility(uiOptions);
+        // Map (Right) - Created once, never destroyed
+        if (getSupportFragmentManager().findFragmentById(R.id.fragmentRightContainer) == null) {
+            transaction.replace(R.id.fragmentRightContainer, new MapFragment());
+        }
+
+        // Telemetry (Left)
+        if (getSupportFragmentManager().findFragmentById(R.id.fragmentLeftContainer) == null) {
+            transaction.replace(R.id.fragmentLeftContainer, new TelemetryFragment());
+        }
+
+        // Top Bar (Status)
+        if (getSupportFragmentManager().findFragmentById(R.id.topBarContainer) == null) {
+            transaction.replace(R.id.topBarContainer, new TopBarFragment());
+        }
+
+        // MAP OVERLAY (Search & Nav UI)
+        if (getSupportFragmentManager().findFragmentById(R.id.mapOverlayContainer) == null) {
+            transaction.replace(R.id.mapOverlayContainer, new MapsOverlayFragment());
+        }
+
+        transaction.commitNow();
     }
 
-    private void initializeViews() {
-        // --- Top Status Bar ---
-        clockView = findViewById(R.id.tv_m_clock);
-        tempView = findViewById(R.id.tv_main_temp);
-        windDirectionView = findViewById(R.id.iv_m_wind_dir);
-        bluetoothStatusIcon = findViewById(R.id.iv_m_bluetooth_status);
-        lteStatusView = findViewById(R.id.iv_main_lte_signal);
-        lteNetworkType = findViewById(R.id.tv_main_signal_network_type);
-        brightnessDebugView = findViewById(R.id.brightesscrap);
-
-        // --- Bottom Bar ---
+    private void setupBottomBar() {
+        // Find Views
         menuMain = findViewById(R.id.iv_bottom_nav_bar_settings);
         menuMusic = findViewById(R.id.iv_bottom_nav_bar_music);
-
         menuVolUp = findViewById(R.id.iv_bottom_nav_bar_vol_up);
         menuVolDown = findViewById(R.id.iv_bottom_nav_bar_vol_down);
-
         menuSeatLeft = findViewById(R.id.iv_bottom_nav_bar_left_seat_heater);
         menuSeatRight = findViewById(R.id.iv_bottom_nav_bar_right_seat_heater);
         menuTempLeftUp = findViewById(R.id.iv_bottom_nav_bar_left_temp_up);
@@ -152,159 +123,7 @@ public class MainActivity extends AppCompatActivity {
         menuFan = findViewById(R.id.iv_bottom_nav_bar_fan_setting_icon);
         menuDefrost = findViewById(R.id.iv_bottom_nav_bar_defrost);
 
-        // Quick shortcut to Wifi settings from signal icon
-        lteStatusView.setOnClickListener(v ->
-                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS)));
-    }
-
-    private void setupRepositoryObservers() {
-        // 1. Screen Brightness & Debug Text
-        repository.getScreenBrightness().observe(this, brightness -> {
-            // Update Window brightness
-            WindowManager.LayoutParams lp = getWindow().getAttributes();
-            lp.screenBrightness = brightness;
-            getWindow().setAttributes(lp);
-
-            // Update Debug TextView ("120br")
-            int rawVal = (int) (brightness * 255);
-            brightnessDebugView.setText(rawVal + "br");
-        });
-
-        // 2. Night Mode (Theme)
-        repository.getIsNightMode().observe(this, isNight -> {
-            int currentMode = AppCompatDelegate.getDefaultNightMode();
-            int targetMode = isNight ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO;
-            if (currentMode != targetMode) {
-                AppCompatDelegate.setDefaultNightMode(targetMode);
-            }
-        });
-
-        // 3. Bluetooth Status & Screen Logic
-        repository.getBluetoothState().observe(this, isConnected -> {
-            if (isConnected) {
-                // Key is here: Keep screen ON and show Blue Icon
-                getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                bluetoothStatusIcon.setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.ic_bluetooth_nearby));
-            } else {
-                // Key is gone: Let screen SLEEP and show Grey Icon
-                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                bluetoothStatusIcon.setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.ic_bluetooth));
-            }
-        });
-
-        // 4. Weather & Wind Direction
-        repository.getWeather().observe(this, weather -> {
-            if (weather != null) {
-                tempView.setText(String.format(Locale.US, "%d°C", weather.getTemp()));
-
-                // Calculate relative wind direction based on Car Heading
-                Location currentLocation = repository.getLocation().getValue();
-                float carBearing = (currentLocation != null) ? currentLocation.getBearing() : 0f;
-
-                float relativeAngle = (float) weather.getWindDeg() - carBearing;
-                if (relativeAngle < 0) relativeAngle += 360;
-                if (relativeAngle > 360) relativeAngle -= 360;
-
-                windDirectionView.setRotation(relativeAngle);
-            }
-        });
-
-        // 5. Location Data (Updates every second)
-        // FIX: We must observe location here to rotate the arrow when the CAR turns
-        repository.getLocation().observe(this, location -> {
-            if (location != null) {
-                updateWindDirection();
-            }
-        });
-
-        // 6. Network Signal & Type
-        repository.getNetworkStatus().observe(this, status -> {
-            updateNetworkUI(status);
-        });
-    }
-
-    private void updateWindDirection() {
-        com.openautodash.object.Weather weather = repository.getWeather().getValue();
-        Location location = repository.getLocation().getValue();
-
-        if (weather != null && location != null) {
-            float windBearing = (float) weather.getWindDeg();
-            float carBearing = location.getBearing();
-
-            // Calculate relative angle (Wind - Car)
-            float relativeAngle = windBearing - carBearing;
-
-            // Normalize to 0-360
-            if (relativeAngle < 0) relativeAngle += 360;
-            if (relativeAngle > 360) relativeAngle -= 360;
-
-            windDirectionView.setRotation(relativeAngle);
-        }
-    }
-
-    private void updateNetworkUI(VehicleRepository.NetworkStatus status) {
-        // Set Signal Icon
-        int iconRes = R.drawable.signal_lte_0; // Default empty
-
-        if (status.isWifi) {
-            iconRes = (status.signalStrength > 0) ? R.drawable.signal_wifi_1 : R.drawable.signal_wifi_0;
-        } else {
-            switch (status.signalStrength) {
-                case 1: iconRes = R.drawable.signal_lte_1; break;
-                case 2: iconRes = R.drawable.signal_lte_2; break;
-                case 3: iconRes = R.drawable.signal_lte_3; break;
-                case 4: iconRes = R.drawable.signal_lte_4; break;
-                case 5: iconRes = R.drawable.signal_lte_5; break;
-            }
-        }
-        lteStatusView.setImageDrawable(AppCompatResources.getDrawable(this, iconRes));
-
-        // Set Text (LTE, 3G, etc.)
-        String typeText = "";
-        if (!status.isWifi) {
-            switch (status.networkType) {
-                case 19: typeText = "LTE"; break;
-                case 1: case 2: typeText = "2G"; break;
-                case 3: case 8: case 9: typeText = "3G"; break;
-                default: typeText = status.networkType > 0 ? "D" + status.networkType : "";
-            }
-        }
-        lteNetworkType.setText(typeText);
-    }
-
-    private void initializeFragments() {
-        // Attempt to find existing fragments first (restored by OS after theme switch/rotation)
-        fragmentRight = getSupportFragmentManager().findFragmentById(R.id.fragmentRightContainer);
-        fragmentLeft = getSupportFragmentManager().findFragmentById(R.id.fragmentLeftContainer);
-
-        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-        boolean changed = false;
-
-        // Only create a new MapFragment if one wasn't found
-        if (fragmentRight == null) {
-            Log.d(TAG, "initializeFragments: Creating NEW MapFragment StartUp");
-            fragmentRight = new MapFragment();
-            transaction.replace(R.id.fragmentRightContainer, fragmentRight);
-            changed = true;
-        } else {
-            Log.d(TAG, "initializeFragments: Reusing existing MapFragment instance StartUp");
-        }
-
-        // Only create a new TelemetryFragment if one wasn't found
-        if (fragmentLeft == null) {
-            Log.d(TAG, "initializeFragments: Creating NEW TelemetryFragment StartUp");
-            fragmentLeft = new TelemetryFragment();
-            transaction.replace(R.id.fragmentLeftContainer, fragmentLeft);
-            changed = true;
-        }
-
-        if (changed) {
-            // commitNow() ensures the fragments are attached immediately
-            transaction.commitNow();
-        }
-    }
-
-    private void setupControlPanel() {
+        // Listeners
         menuMain.setOnClickListener(v -> toggleMenu());
         menuMain.setOnLongClickListener(v -> {
             showEngineDialog();
@@ -312,27 +131,77 @@ public class MainActivity extends AppCompatActivity {
         });
 
         menuMusic.setOnClickListener(v -> launchSpotify());
-
         menuVolUp.setOnClickListener(v -> adjustVolume(AudioManager.ADJUST_RAISE));
         menuVolDown.setOnClickListener(v -> adjustVolume(AudioManager.ADJUST_LOWER));
 
-        // Placeholder for future Climate implementation
+        // Placeholders
         View.OnClickListener notImplemented = v -> Log.d(TAG, "Climate feature pending");
         menuSeatLeft.setOnClickListener(notImplemented);
+        menuSeatRight.setOnClickListener(notImplemented);
         menuTempLeftUp.setOnClickListener(notImplemented);
         menuTempLeftDown.setOnClickListener(notImplemented);
+        menuTempRightUp.setOnClickListener(notImplemented);
+        menuTempRightDown.setOnClickListener(notImplemented);
+        menuFan.setOnClickListener(notImplemented);
+        menuDefrost.setOnClickListener(notImplemented);
     }
+
+    // --- THEME & CONFIGURATION HANDLING ---
+
+    @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        Log.d(TAG, "Theme Changed: Reloading UI Fragments");
+
+        getTheme().applyStyle(R.style.Theme_OpenAutoDash, true);
+
+        // Update Root Background
+        int backgroundColor = ContextCompat.getColor(this, R.color.colorBackgroundDefault);
+        View root = findViewById(R.id.root_layout_container);
+        if (root != null) root.setBackgroundColor(backgroundColor);
+
+        // --- NUCLEAR OPTION: Kill Zombies ---
+        FragmentTransaction tr = getSupportFragmentManager().beginTransaction();
+
+        // Remove old instances explicitly
+        Fragment oldTele = getSupportFragmentManager().findFragmentById(R.id.fragmentLeftContainer);
+        if (oldTele != null) tr.remove(oldTele);
+
+        Fragment oldTop = getSupportFragmentManager().findFragmentById(R.id.topBarContainer);
+        if (oldTop != null) tr.remove(oldTop);
+
+        Fragment oldOverlay = getSupportFragmentManager().findFragmentById(R.id.mapOverlayContainer);
+        if (oldOverlay != null) tr.remove(oldOverlay);
+
+        tr.commitNow(); // Ensure they are dead before adding new ones
+
+        // --- Re-Add Fresh Instances (New Theme) ---
+        FragmentTransaction addTr = getSupportFragmentManager().beginTransaction();
+        addTr.replace(R.id.fragmentLeftContainer, new TelemetryFragment());
+        addTr.replace(R.id.topBarContainer, new TopBarFragment());
+        addTr.replace(R.id.mapOverlayContainer, new MapsOverlayFragment());
+        addTr.commitNow();
+    }
+
+    private void setupRepositoryObservers() {
+        repository.getIsNightMode().observe(this, isNight -> {
+            int targetMode = isNight ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO;
+            if (AppCompatDelegate.getDefaultNightMode() != targetMode) {
+                AppCompatDelegate.setDefaultNightMode(targetMode);
+            }
+        });
+    }
+
+    // --- ACTIONS ---
 
     private void toggleMenu() {
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         if (currentMenuShowing == 1) {
-            // Close Menu
             transaction.setCustomAnimations(R.anim.stay, R.anim.slide_out_bottom);
             Fragment menu = getSupportFragmentManager().findFragmentById(R.id.menuContainer);
             if (menu != null) transaction.remove(menu);
             currentMenuShowing = 0;
         } else {
-            // Open Menu
             transaction.setCustomAnimations(R.anim.slide_in_bottom, R.anim.stay);
             transaction.replace(R.id.menuContainer, new MenuFragment());
             currentMenuShowing = 1;
@@ -347,7 +216,6 @@ public class MainActivity extends AppCompatActivity {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
             } else {
-                // Fallback Intent
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.spotify.music")));
             }
         } catch (Exception e) {
@@ -360,101 +228,23 @@ public class MainActivity extends AppCompatActivity {
         audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, direction, AudioManager.FLAG_SHOW_UI);
     }
 
+    public void showEngineDialog() {
+        Dialog dialog = new Dialog(this);
+        dialog.setContentView(R.layout.dialog_engine_menu);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.background_dialog, null));
+            dialog.getWindow().setGravity(Gravity.BOTTOM);
+        }
+        dialog.findViewById(R.id.b_dialog_engine_close).setOnClickListener(v -> dialog.cancel());
+        dialog.show();
+    }
+
+    // --- SYSTEM ---
+
     private void startHardwareService() {
         Intent intent = new Intent(this, MainForegroundService.class);
         ContextCompat.startForegroundService(this, intent);
     }
-
-    // --- Lifecycle & System Events ---
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Clock Ticker
-        clockView.setText(clockFormat.format(new Date()));
-        clockReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context ctx, Intent intent) {
-                if (Intent.ACTION_TIME_TICK.equals(intent.getAction())) {
-                    clockView.setText(clockFormat.format(new Date()));
-                }
-            }
-        };
-        registerReceiver(clockReceiver, new IntentFilter(Intent.ACTION_TIME_TICK));
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if (clockReceiver != null) {
-            unregisterReceiver(clockReceiver);
-        }
-    }
-
-    @Override
-    public void onConfigurationChanged(@NonNull Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        Log.d(TAG, "Configuration Changed: Manually Repainting UI");
-
-        // 1. Force the Resources to Refresh
-        getTheme().applyStyle(R.style.Theme_OpenAutoDash, true);
-
-        // 2. Repaint the Static UI Elements (Top/Bottom Bars)
-        refreshStaticUI();
-
-        // 3. Recreate Telemetry Fragment (This forces it to reload XML with new colors)
-        Fragment teleFrag = getSupportFragmentManager().findFragmentById(R.id.fragmentLeftContainer);
-        if (teleFrag != null) {
-            getSupportFragmentManager().beginTransaction().remove(teleFrag).commitNow();
-        }
-        fragmentLeft = new TelemetryFragment();
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragmentLeftContainer, fragmentLeft, "TELE_TAG")
-                .commitNow();
-
-        // 4. MapFragment updates itself via its own onConfigurationChanged
-    }
-
-    private void refreshStaticUI() {
-        // --- A. Backgrounds ---
-        // Get the color from your theme attributes (values/colors.xml vs values-night/colors.xml)
-        int backgroundColor = ContextCompat.getColor(this, R.color.colorBackgroundDefault); // Ensure you have this in colors.xml
-        int titleColor = ContextCompat.getColor(this, R.color.colorTextTitle);
-        int bodyColor = ContextCompat.getColor(this, R.color.colorTextBody);
-        int iconColor = ContextCompat.getColor(this, R.color.colorIconsDefault); // You might need to define this
-
-        // Apply to Root Layout (You added the ID earlier)
-        View root = findViewById(R.id.root_layout_container); // Make sure you added this ID to the XML!
-        if (root != null) root.setBackgroundColor(backgroundColor);
-
-        // --- B. Text Colors ---
-        clockView.setTextColor(titleColor);
-        tempView.setTextColor(bodyColor);
-        lteNetworkType.setTextColor(bodyColor);
-
-        // --- C. Icons (Tinting) ---
-        // Vector drawables often cache their color. We force a re-tint.
-        // If your icons are white in Night and Black in Day:
-        setColorFilter(windDirectionView, iconColor);
-        setColorFilter(bluetoothStatusIcon, iconColor);
-        // ... add other icons here ...
-
-        // --- D. Bottom Bar ---
-        // Your bottom bar has a hardcoded Black background in XML: android:background="@android:color/black"
-        // If you want that to change, you must change the XML to use a resource like @color/navBarBackground
-        // and then update it here:
-        View bottomBarBg = findViewById(R.id.bottomNavBar);
-        if (bottomBarBg != null) {
-            // bottomBarBg.setBackgroundColor(ContextCompat.getColor(this, R.color.navBarBackground));
-        }
-    }
-
-    // Helper to safely tint icons
-    private void setColorFilter(ImageView iv, int color) {
-        if (iv != null) iv.setColorFilter(color);
-    }
-
-    // --- Permissions & Dialogs ---
 
     private void checkPermissions() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -481,19 +271,6 @@ public class MainActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    public void showEngineDialog() {
-        Dialog dialog = new Dialog(this);
-        dialog.setContentView(R.layout.dialog_engine_menu);
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.background_dialog, null));
-            dialog.getWindow().setGravity(Gravity.BOTTOM);
-        }
-        dialog.findViewById(R.id.b_dialog_engine_close).setOnClickListener(v -> dialog.cancel());
-        dialog.show();
-    }
-
-    // Public method required for XML onClick="updateTemp"
-    public void updateTemp(View view) {
-        // Triggers a manual weather refresh via Repo if needed
-    }
+    // Required for legacy XML onClick binding if still present
+    public void updateTemp(View view) {}
 }

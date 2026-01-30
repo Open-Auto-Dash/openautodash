@@ -43,82 +43,23 @@
         app:layout_constraintEnd_toStartOf="@+id/fragmentRightContainer"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <TextView
-        android:id="@+id/brightesscrap"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="8dp"
-        android:text="TextView"
-        app:layout_constraintStart_toEndOf="@+id/iv_main_lte_signal"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <ImageView
-        android:id="@+id/iv_m_bluetooth_status"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintStart_toEndOf="@+id/fragmentLeftContainer"
-        app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/ic_bluetooth" />
-
-    <TextView
-        android:id="@+id/tv_m_clock"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="24dp"
-        android:text="12:17 PM"
-        android:textAlignment="textEnd"
-        android:textAppearance="@style/TextAppearance.AppCompat.Body2"
-        android:textColor="@color/colorTextTitle"
-        android:textSize="22sp"
-        android:textStyle="bold"
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/topBarContainer"
+        android:layout_width="0dp"
+        android:layout_height="100dp"
+        android:elevation="10dp"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/divider2"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <TextView
-        android:id="@+id/tv_main_signal_network_type"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:text="3G"
-        android:textSize="11sp"
-        app:layout_constraintStart_toStartOf="@+id/iv_main_lte_signal"
-        app:layout_constraintTop_toTopOf="@+id/iv_main_lte_signal" />
-
-    <ImageView
-        android:id="@+id/iv_main_lte_signal"
-        android:layout_width="60dp"
-        android:layout_height="35dp"
-        android:layout_marginStart="8dp"
-        app:layout_constraintBottom_toBottomOf="@+id/iv_m_bluetooth_status"
-        app:layout_constraintStart_toEndOf="@+id/iv_m_bluetooth_status"
-        app:srcCompat="@drawable/signal_lte_1" />
-
-    <TextView
-        android:id="@+id/tv_main_temp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="32dp"
-        android:onClick="updateTemp"
-        android:text="20°C"
-        android:textAppearance="@style/TextAppearance.AppCompat.Body1"
-        android:textSize="22sp"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_m_clock"
-        app:layout_constraintEnd_toStartOf="@+id/tv_m_clock"
-        app:layout_constraintTop_toTopOf="@+id/tv_m_clock" />
-
-    <ImageView
-        android:id="@+id/iv_m_wind_dir"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_main_temp"
-        app:layout_constraintEnd_toStartOf="@+id/tv_main_temp"
-        app:layout_constraintTop_toTopOf="@+id/tv_main_temp"
-        app:srcCompat="@drawable/wind_direction" />
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/mapOverlayContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="@+id/fragmentRightContainer"
+        app:layout_constraintEnd_toEndOf="@+id/fragmentRightContainer"
+        app:layout_constraintStart_toStartOf="@+id/fragmentRightContainer"
+        app:layout_constraintTop_toTopOf="@+id/fragmentRightContainer" />
 
     <HorizontalScrollView
         android:id="@+id/bottomNavBarContainer"
