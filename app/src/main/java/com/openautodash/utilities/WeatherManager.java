@@ -125,7 +125,7 @@ public class WeatherManager {
                         JSONObject wind = jsonObject.getJSONObject("wind");
                         weather.setWindSpeed(wind.getInt("speed"));
                         weather.setWindDeg(wind.getInt("deg"));
-                        weather.setWindGust(wind.getInt("gust"));
+                        weather.setWindGust(wind.optInt("gust", 0));
 
                         float relativeAngle = (float) weather.getWindDeg() - weather.getLocation().getBearing();
                         if (relativeAngle < 0) {

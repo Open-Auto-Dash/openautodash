@@ -3,6 +3,7 @@ package com.openautodash.repositorys;
 import android.app.Application;
 import android.content.Context;
 import android.location.Location;
+import android.util.Log;
 
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.lifecycle.LiveData;
@@ -160,6 +161,7 @@ public class VehicleRepository implements WeatherUpdateCallback {
         boolean shouldUpdate = false;
 
         if (lastWeatherLocation == null) {
+            Log.d(TAG, "updateLocation: cold start get wether");
             shouldUpdate = true;
         } else {
             float distance = location.distanceTo(lastWeatherLocation);
@@ -171,6 +173,7 @@ public class VehicleRepository implements WeatherUpdateCallback {
         }
 
         if (shouldUpdate) {
+            Log.d(TAG, "updateLocation Getting weather");
             weatherManager.getCurrentWeather(location);
             lastWeatherLocation = location;
             lastWeatherTime = System.currentTimeMillis();
@@ -182,8 +185,10 @@ public class VehicleRepository implements WeatherUpdateCallback {
     public void onComplete(Weather weather) {
         // Sync logic from your original code
         if (weatherManager != null) {
+            Log.d(TAG, "onComplete: syncing weather");
             weatherManager.syncWeather();
         }
+        Log.d(TAG, "onComplete: Got weather");
         currentWeather.postValue(weather);
     }
 
