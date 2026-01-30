@@ -73,9 +73,7 @@ public class MapFragment extends Fragment {
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        // This layout can now be empty or just a FrameLayout container,
-        // as the map itself is injected via ChildFragmentManager.
-        // We use fragment_map still, but ignoring the old UI elements inside it.
+        // This layout is just a container for the Google Nav Fragment
         return inflater.inflate(R.layout.fragment_map, container, false);
     }
 
@@ -88,17 +86,53 @@ public class MapFragment extends Fragment {
     }
 
     private void setupViewModelObservers() {
-        // 1. Listen for Start Navigation Command (From Overlay Fragment)
+        // 1. Listen for Start Navigation Command
         viewModel.getStartNavigationCommand().observe(getViewLifecycleOwner(), waypoint -> {
             if (waypoint != null) {
                 executeStartNavigation(waypoint);
             }
         });
 
-        // 2. Listen for Stop Navigation Command (From Overlay Fragment)
+        // 2. Listen for Stop Navigation Command
         viewModel.getStopNavigationCommand().observe(getViewLifecycleOwner(), stop -> {
             if (stop != null && stop) {
                 executeStopNavigation();
+            }
+        });
+
+        // --- NEW CONTROLS ---
+
+        // 3. Traffic Toggle
+        viewModel.getIsTrafficEnabled().observe(getViewLifecycleOwner(), enabled -> {
+            if (mNavFragment != null) {
+                mNavFragment.getMapAsync(map -> {
+                    try {
+                        map.setTrafficEnabled(enabled);
+                    } catch (SecurityException e) {
+                        Log.e(TAG, "Traffic permission error", e);
+                    }
+                });
+            }
+        });
+
+        // 4. Satellite Toggle
+        viewModel.getIsSatelliteEnabled().observe(getViewLifecycleOwner(), enabled -> {
+            if (mNavFragment != null) {
+                mNavFragment.getMapAsync(map -> {
+                    if (enabled) {
+                        map.setMapType(GoogleMap.MAP_TYPE_HYBRID);
+                    } else {
+                        map.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+                    }
+                });
+            }
+        });
+
+        // 5. Audio Guidance
+        viewModel.getAudioGuidanceState().observe(getViewLifecycleOwner(), state -> {
+            if (mNavigator != null && state != null) {
+                mNavigator.setAudioGuidance(state);
+                Log.d(TAG, "Audio Guidance Set To: " + state);
             }
         });
     }
@@ -113,7 +147,14 @@ public class MapFragment extends Fragment {
         mNavigator.setDestination(destination, new RoutingOptions().travelMode(RoutingOptions.TravelMode.DRIVING))
                 .setOnResultListener(code -> {
                     if (code == Navigator.RouteStatus.OK) {
-                        mNavigator.setAudioGuidance(Navigator.AudioGuidance.VOICE_ALERTS_ONLY);
+                        // Apply current audio setting immediately upon start
+                        Integer audioState = viewModel.getAudioGuidanceState().getValue();
+                        if (audioState != null) {
+                            mNavigator.setAudioGuidance(audioState);
+                        } else {
+                            mNavigator.setAudioGuidance(Navigator.AudioGuidance.VOICE_ALERTS_AND_GUIDANCE);
+                        }
+
                         mNavigator.startGuidance();
                         setupNavListeners();
 

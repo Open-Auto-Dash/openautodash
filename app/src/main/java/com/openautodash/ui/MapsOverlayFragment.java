@@ -10,16 +10,20 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.cardview.widget.CardView;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.libraries.navigation.Navigator;
 import com.google.android.libraries.navigation.Waypoint;
 import com.google.android.libraries.places.api.model.Place;
 import com.openautodash.MapViewModel;
@@ -37,16 +41,23 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
     private LocationSearchManager searchManager;
     private SearchAdapter searchAdapter;
 
-    // UI
+    // --- UI: Search & Nav Header ---
     private EditText searchBar;
     private RecyclerView searchResultsRv;
     private ConstraintLayout navInfoHeader;
     private TextView tvEta, tvDistance, tvTime, btnExitNav;
 
+    // --- UI: Map Controls ---
+    private ImageView btnTraffic, btnSat;
+
+    // --- UI: Volume Control ---
+    private CardView cardVolumeControl;
+    private ImageView btnVolMain, btnVolAlert, btnVolMute;
+    private boolean isVolumeExpanded = false;
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Grab the ViewModel tied to the Activity (shared)
         viewModel = new ViewModelProvider(requireActivity()).get(MapViewModel.class);
         searchManager = new LocationSearchManager(requireContext());
     }
@@ -61,10 +72,12 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         initViews(view);
+        setupListeners();
         setupObservers();
     }
 
     private void initViews(View view) {
+        // Search & Header
         searchBar = view.findViewById(R.id.et_search_bar);
         searchResultsRv = view.findViewById(R.id.rv_search_results);
         navInfoHeader = view.findViewById(R.id.cl_nav_info_header);
@@ -73,11 +86,24 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
         tvTime = view.findViewById(R.id.tv_nav_time);
         btnExitNav = view.findViewById(R.id.btn_exit_nav);
 
-        // Setup Search
+        // Map Controls
+        btnTraffic = view.findViewById(R.id.iv_map_traffic);
+        btnSat = view.findViewById(R.id.iv_map_type);
+
+        // Volume Controls
+        cardVolumeControl = view.findViewById(R.id.card_volume_control);
+        btnVolMain = view.findViewById(R.id.btn_vol_main);
+        btnVolAlert = view.findViewById(R.id.btn_vol_alert);
+        btnVolMute = view.findViewById(R.id.btn_vol_mute);
+
+        // Setup RecyclerView
         searchResultsRv.setLayoutManager(new LinearLayoutManager(getContext()));
         searchAdapter = new SearchAdapter(this::onPlaceSuggestionClicked);
         searchResultsRv.setAdapter(searchAdapter);
+    }
 
+    private void setupListeners() {
+        // --- Search Bar ---
         searchBar.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -90,8 +116,57 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        // Exit Navigation Button
+        // --- Buttons ---
         btnExitNav.setOnClickListener(v -> viewModel.requestStopNavigation());
+
+        // Map Toggles
+        btnTraffic.setOnClickListener(v -> viewModel.toggleTraffic());
+        btnSat.setOnClickListener(v -> viewModel.toggleSatellite());
+
+        // --- VOLUME LOGIC FIX ---
+
+        // 1. Main Button (The Anchor)
+        btnVolMain.setOnClickListener(v -> {
+            if (isVolumeExpanded) {
+                // If Expanded: Clicking this icon means "Select Normal Voice"
+                viewModel.setAudioGuidance(Navigator.AudioGuidance.VOICE_ALERTS_AND_GUIDANCE);
+                toggleVolumeExpand();
+            } else {
+                // If Collapsed: Clicking this opens the menu
+                toggleVolumeExpand();
+            }
+        });
+
+        // 2. Mute Button
+        btnVolMute.setOnClickListener(v -> {
+            viewModel.setAudioGuidance(Navigator.AudioGuidance.SILENT);
+            toggleVolumeExpand(); // Select & Close
+        });
+
+        // 3. Alert Button
+        btnVolAlert.setOnClickListener(v -> {
+            viewModel.setAudioGuidance(Navigator.AudioGuidance.VOICE_ALERTS_ONLY);
+            toggleVolumeExpand(); // Select & Close
+        });
+    }
+
+    private void toggleVolumeExpand() {
+        isVolumeExpanded = !isVolumeExpanded;
+
+        if (isVolumeExpanded) {
+            // EXPAND: Show hidden options to the left
+            // We set the Main icon to "Voice" temporarily so the list looks like [Mute][Alert][Voice]
+            btnVolMain.setImageResource(R.drawable.ic_volume);
+            btnVolMute.setVisibility(View.VISIBLE);
+            btnVolAlert.setVisibility(View.VISIBLE);
+        } else {
+            // COLLAPSE: Hide options
+            btnVolMute.setVisibility(View.GONE);
+            btnVolAlert.setVisibility(View.GONE);
+
+            // Restore the main icon to match the ACTUAL current state
+            updateMainVolumeIcon(viewModel.getAudioGuidanceState().getValue());
+        }
     }
 
     private void setupObservers() {
@@ -103,12 +178,12 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
                 navInfoHeader.setVisibility(View.VISIBLE);
             } else {
                 searchBar.setVisibility(View.VISIBLE);
-                searchBar.setText(""); // Clear prev search
+                searchBar.setText("");
                 navInfoHeader.setVisibility(View.GONE);
             }
         });
 
-        // 2. Navigation Stats Updates (ETA, Time, Dist)
+        // 2. Navigation Stats
         viewModel.getNavStats().observe(getViewLifecycleOwner(), stats -> {
             if (stats != null) {
                 tvTime.setText(stats.time);
@@ -116,6 +191,41 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
                 tvEta.setText(stats.eta);
             }
         });
+
+
+        // 3. Traffic Toggle UI
+        viewModel.getIsTrafficEnabled().observe(getViewLifecycleOwner(), enabled -> {
+            // Dim if disabled, Bright if enabled
+            btnTraffic.setBackground(enabled ? ResourcesCompat.getDrawable(getResources(), R.drawable.background_image_view_sellected, null) : null);
+        });
+
+        // 4. Satellite Toggle UI
+        viewModel.getIsSatelliteEnabled().observe(getViewLifecycleOwner(), enabled -> {
+            btnSat.setBackground(enabled ? ResourcesCompat.getDrawable(getResources(), R.drawable.background_image_view_sellected, null) : null);
+        });
+
+        // 5. Volume Icon UI
+        viewModel.getAudioGuidanceState().observe(getViewLifecycleOwner(), state -> {
+            // Only update the main icon if we are COLLAPSED.
+            // If expanded, we want the icons to remain static options.
+            if (!isVolumeExpanded) {
+                updateMainVolumeIcon(state);
+            }
+        });
+    }
+
+    private void updateMainVolumeIcon(Integer state) {
+        if (state == null) return;
+
+        int iconRes;
+        if (state == Navigator.AudioGuidance.SILENT) {
+            iconRes = R.drawable.ic_volume_mute;
+        } else if (state == Navigator.AudioGuidance.VOICE_ALERTS_ONLY) {
+            iconRes = R.drawable.ic_volume_alert;
+        } else {
+            iconRes = R.drawable.ic_volume; // Voice Guidance (Normal)
+        }
+        btnVolMain.setImageResource(iconRes);
     }
 
     // --- Search Logic ---
@@ -127,7 +237,6 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
 
         try {
             Waypoint destination = Waypoint.builder().setPlaceIdString(result.placeId()).build();
-            // Send Command to MapFragment via ViewModel
             viewModel.requestStartNavigation(destination);
         } catch (Waypoint.UnsupportedPlaceIdException e) {
             Log.e(TAG, "Invalid Place ID", e);

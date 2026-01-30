@@ -97,4 +97,30 @@ public class LocalSettings {
     public Units getWeatherUnits(){
         return Units.valueOf(preferences.getString("weatherUnits", "Metric"));
     }
+
+    public void setTrafficEnabled(boolean enabled) {
+        editor.putBoolean("map_traffic_enabled", enabled).commit();
+    }
+
+    public boolean getTrafficEnabled() {
+        return preferences.getBoolean("map_traffic_enabled", false); // Default OFF
+    }
+
+    public void setSatelliteEnabled(boolean enabled) {
+        editor.putBoolean("map_satellite_enabled", enabled).commit();
+    }
+
+    public boolean getSatelliteEnabled() {
+        return preferences.getBoolean("map_satellite_enabled", false); // Default OFF
+    }
+
+    public void setAudioGuidanceState(int state) {
+        editor.putInt("map_audio_guidance", state).commit();
+    }
+
+    public int getAudioGuidanceState() {
+        // Default to 2 (VOICE_ALERTS_AND_GUIDANCE)
+        // We use the raw integer because importing Navigator here might cause dependency issues
+        return preferences.getInt("map_audio_guidance", 2);
+    }
 }
