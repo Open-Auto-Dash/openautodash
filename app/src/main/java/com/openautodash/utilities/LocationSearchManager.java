@@ -67,24 +67,4 @@ public class LocationSearchManager {
                 });
     }
 
-    public void getPlaceDetails(String placeId, LocationSearchCallback callback) {
-//        List<Place.Field> placeFields = Arrays.asList(
-//                Place.Field.ID,
-//                Place.Field.NAME,
-//                Place.Field.LAT_LNG,
-//                Place.Field.ADDRESS,
-//                Place.Field.TYPES
-//        );
-//
-//        FetchPlaceRequest request = FetchPlaceRequest.builder(placeId, placeFields).build();
-//
-//        placesClient.fetchPlace(request)
-//                .addOnSuccessListener(response -> {
-//                    Place place = response.getPlace();
-//                    mainHandler.post(() -> callback.onPlaceSelected(place));
-//                })
-//                .addOnFailureListener(exception -> {
-//                    mainHandler.post(() -> callback.onError("Place details failed: " + exception.getMessage()));
-//                });
-    }
 }

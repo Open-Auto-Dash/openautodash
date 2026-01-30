@@ -1,27 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@color/colorBackgroundDefault"
     android:orientation="vertical"
-    android:padding="12dp"
-    android:background="?android:attr/selectableItemBackground">
+    android:padding="12dp">
 
     <TextView
-        android:id="@+id/tv_suggestion_primary"
+        android:id="@+id/tv_search_primary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textColor="@color/colorTextTitle"
+        android:textStyle="bold"
         android:textSize="16sp"
-        android:textColor="@android:color/black"
-        android:maxLines="1"
-        android:ellipsize="end" />
+        android:text="Primary Text" />
 
     <TextView
-        android:id="@+id/tv_suggestion_secondary"
+        android:id="@+id/tv_search_secondary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textColor="@color/colorTextBody"
         android:textSize="14sp"
-        android:textColor="@android:color/darker_gray"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:layout_marginTop="2dp" />
-
+        android:text="Secondary Text" />
 </LinearLayout>
