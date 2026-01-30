@@ -4,9 +4,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:id="@+id/root_layout_container"
     tools:context=".MainActivity">
 
-    <RelativeLayout
+    <androidx.fragment.app.FragmentContainerView
         android:id="@+id/fragmentRightContainer"
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -14,7 +15,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/fragmentLeftContainer"
         app:layout_constraintTop_toTopOf="parent" >
-    </RelativeLayout>
+    </androidx.fragment.app.FragmentContainerView>
 
     <RelativeLayout
         android:id="@+id/menuContainer"
@@ -25,7 +26,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="@+id/fragmentRightContainer" />
 
-    <RelativeLayout
+    <androidx.fragment.app.FragmentContainerView
         android:id="@+id/fragmentLeftContainer"
         android:layout_width="385dp"
         android:layout_height="0dp"

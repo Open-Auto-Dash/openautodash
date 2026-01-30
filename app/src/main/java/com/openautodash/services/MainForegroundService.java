@@ -156,7 +156,7 @@ public class MainForegroundService extends Service implements SensorEventListene
         else if (event.sensor.getType() == Sensor.TYPE_LIGHT) {
             // Send raw light data to Repository
             // The Repository handles the "Moving Average" buffer logic now
-            Log.d(TAG, "RAW LIGHT SENSOR: " + event.values[0]);
+//            Log.d(TAG, "RAW LIGHT SENSOR: " + event.values[0]);
             repository.updateAmbientLight(event.values[0]);
         }
     }

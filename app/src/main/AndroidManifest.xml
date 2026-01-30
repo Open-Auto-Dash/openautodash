@@ -66,7 +66,8 @@
         <activity
             android:name=".MainActivity"
             android:screenOrientation="landscape"
-            android:exported="true">
+            android:exported="true"
+            android:configChanges="orientation|keyboardHidden|screenSize|uiMode|navigation|screenLayout|smallestScreenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

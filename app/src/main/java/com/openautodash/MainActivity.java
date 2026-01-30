@@ -14,6 +14,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -88,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.d(TAG, "onCreate: Initializing Dashboard");
+        Log.d(TAG, "onCreate: Initializing App StartUp");
 
         // 1. Initialize Repository
         repository = VehicleRepository.getInstance(this);
@@ -107,9 +108,7 @@ public class MainActivity extends AppCompatActivity {
         setupRepositoryObservers();
 
         // 6. Setup Fragments
-        if (savedInstanceState == null) {
-            initializeFragments();
-        }
+        initializeFragments();
 
         // 7. Setup Button Listeners
         setupControlPanel();
@@ -274,14 +273,35 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initializeFragments() {
-        fragmentRight = new MapFragment();
-        fragmentLeft = new TelemetryFragment();
+        // Attempt to find existing fragments first (restored by OS after theme switch/rotation)
+        fragmentRight = getSupportFragmentManager().findFragmentById(R.id.fragmentRightContainer);
+        fragmentLeft = getSupportFragmentManager().findFragmentById(R.id.fragmentLeftContainer);
 
-        getSupportFragmentManager()
-                .beginTransaction()
-                .replace(R.id.fragmentRightContainer, fragmentRight)
-                .replace(R.id.fragmentLeftContainer, fragmentLeft)
-                .commit();
+        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+        boolean changed = false;
+
+        // Only create a new MapFragment if one wasn't found
+        if (fragmentRight == null) {
+            Log.d(TAG, "initializeFragments: Creating NEW MapFragment StartUp");
+            fragmentRight = new MapFragment();
+            transaction.replace(R.id.fragmentRightContainer, fragmentRight);
+            changed = true;
+        } else {
+            Log.d(TAG, "initializeFragments: Reusing existing MapFragment instance StartUp");
+        }
+
+        // Only create a new TelemetryFragment if one wasn't found
+        if (fragmentLeft == null) {
+            Log.d(TAG, "initializeFragments: Creating NEW TelemetryFragment StartUp");
+            fragmentLeft = new TelemetryFragment();
+            transaction.replace(R.id.fragmentLeftContainer, fragmentLeft);
+            changed = true;
+        }
+
+        if (changed) {
+            // commitNow() ensures the fragments are attached immediately
+            transaction.commitNow();
+        }
     }
 
     private void setupControlPanel() {
@@ -374,7 +394,64 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        // XML handles layout width now
+        Log.d(TAG, "Configuration Changed: Manually Repainting UI");
+
+        // 1. Force the Resources to Refresh
+        getTheme().applyStyle(R.style.Theme_OpenAutoDash, true);
+
+        // 2. Repaint the Static UI Elements (Top/Bottom Bars)
+        refreshStaticUI();
+
+        // 3. Recreate Telemetry Fragment (This forces it to reload XML with new colors)
+        Fragment teleFrag = getSupportFragmentManager().findFragmentById(R.id.fragmentLeftContainer);
+        if (teleFrag != null) {
+            getSupportFragmentManager().beginTransaction().remove(teleFrag).commitNow();
+        }
+        fragmentLeft = new TelemetryFragment();
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.fragmentLeftContainer, fragmentLeft, "TELE_TAG")
+                .commitNow();
+
+        // 4. MapFragment updates itself via its own onConfigurationChanged
+    }
+
+    private void refreshStaticUI() {
+        // --- A. Backgrounds ---
+        // Get the color from your theme attributes (values/colors.xml vs values-night/colors.xml)
+        int backgroundColor = ContextCompat.getColor(this, R.color.colorBackgroundDefault); // Ensure you have this in colors.xml
+        int titleColor = ContextCompat.getColor(this, R.color.colorTextTitle);
+        int bodyColor = ContextCompat.getColor(this, R.color.colorTextBody);
+        int iconColor = ContextCompat.getColor(this, R.color.colorIconsDefault); // You might need to define this
+
+        // Apply to Root Layout (You added the ID earlier)
+        View root = findViewById(R.id.root_layout_container); // Make sure you added this ID to the XML!
+        if (root != null) root.setBackgroundColor(backgroundColor);
+
+        // --- B. Text Colors ---
+        clockView.setTextColor(titleColor);
+        tempView.setTextColor(bodyColor);
+        lteNetworkType.setTextColor(bodyColor);
+
+        // --- C. Icons (Tinting) ---
+        // Vector drawables often cache their color. We force a re-tint.
+        // If your icons are white in Night and Black in Day:
+        setColorFilter(windDirectionView, iconColor);
+        setColorFilter(bluetoothStatusIcon, iconColor);
+        // ... add other icons here ...
+
+        // --- D. Bottom Bar ---
+        // Your bottom bar has a hardcoded Black background in XML: android:background="@android:color/black"
+        // If you want that to change, you must change the XML to use a resource like @color/navBarBackground
+        // and then update it here:
+        View bottomBarBg = findViewById(R.id.bottomNavBar);
+        if (bottomBarBg != null) {
+            // bottomBarBg.setBackgroundColor(ContextCompat.getColor(this, R.color.navBarBackground));
+        }
+    }
+
+    // Helper to safely tint icons
+    private void setColorFilter(ImageView iv, int color) {
+        if (iv != null) iv.setColorFilter(color);
     }
 
     // --- Permissions & Dialogs ---
