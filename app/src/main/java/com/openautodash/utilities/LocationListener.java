@@ -1,12 +1,9 @@
 package com.openautodash.utilities;
 
 import android.location.Location;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.MutableLiveData;
-
-import com.openautodash.LiveDataViewModel;
 
 import java.util.List;
 

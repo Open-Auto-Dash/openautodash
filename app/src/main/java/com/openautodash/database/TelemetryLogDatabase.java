@@ -11,11 +11,12 @@ import androidx.room.Room;
 import androidx.room.RoomDatabase;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {TelemetryLog.class}, version = 1)
+@Database(entities = {TelemetryLog.class, Trip.class}, version = 2)
 public abstract class TelemetryLogDatabase  extends RoomDatabase {
     private static TelemetryLogDatabase instance;
 
     public abstract TelemetryLogDao telemetryLogDao();
+    public abstract TripDao tripDao();
 
     public static synchronized TelemetryLogDatabase getInstance(Context context){
         if(instance == null){

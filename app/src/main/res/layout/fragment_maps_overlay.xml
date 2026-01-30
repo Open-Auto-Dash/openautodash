@@ -11,7 +11,7 @@
         android:layout_width="380dp"
         android:layout_height="50dp"
         android:layout_marginStart="8dp"
-        android:layout_marginTop="40dp"
+        android:layout_marginTop="50dp"
         android:background="@drawable/bg_search_bar"
         android:drawableStart="@android:drawable/ic_menu_search"
         android:drawablePadding="12dp"
@@ -170,6 +170,55 @@
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/card_trip_info"
+        android:layout_width="wrap_content"
+        android:layout_height="50dp"
+        android:layout_marginTop="50dp"
+        android:layout_marginEnd="24dp"
+        android:visibility="visible"
+        app:cardBackgroundColor="@color/colorBackgroundDefault"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="6dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
+
+            <TextView
+                android:id="@+id/tv_trip_dist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:text="0.0 km"
+                android:textColor="@color/colorTextTitle"
+                android:textStyle="bold" />
+
+            <ToggleButton
+                android:id="@+id/btn_trip_business"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/ic_business"
+                android:textOff=""
+                android:textOn="" />
+
+            <ImageView
+                android:id="@+id/btn_trip_stop"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:src="@drawable/ic_stop"
+                app:tint="#B00020" />
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
 
     <androidx.cardview.widget.CardView
         android:id="@+id/card_volume_control"

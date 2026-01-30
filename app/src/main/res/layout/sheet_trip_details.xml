@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@android:color/white">
+
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:background="#E0E0E0"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Trip Summary"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="@color/colorTextTitle"/>
+
+    <TextView
+        android:id="@+id/sheet_tv_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="January 1, 2026"
+        android:textSize="16sp"
+        android:textColor="#666"
+        android:layout_marginBottom="24dp"/>
+
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="2">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginEnd="40dp"
+            android:layout_marginBottom="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Distance"
+                android:textSize="12sp"
+                android:textColor="#888"/>
+
+            <TextView
+                android:id="@+id/sheet_tv_dist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="15.4 km"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@color/colorTextTitle"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Duration"
+                android:textSize="12sp"
+                android:textColor="#888"/>
+
+            <TextView
+                android:id="@+id/sheet_tv_duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="24 min"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@color/colorTextTitle"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Type"
+                android:textSize="12sp"
+                android:textColor="#888"/>
+
+            <TextView
+                android:id="@+id/sheet_tv_type"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Personal"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@color/colorTextTitle"/>
+        </LinearLayout>
+    </GridLayout>
+
+</LinearLayout>

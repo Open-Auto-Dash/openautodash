@@ -123,4 +123,16 @@ public class LocalSettings {
         // We use the raw integer because importing Navigator here might cause dependency issues
         return preferences.getInt("map_audio_guidance", 2);
     }
+
+    public void setHomeLocation(double lat, double lng) {
+        editor.putString("home_lat", String.valueOf(lat));
+        editor.putString("home_lng", String.valueOf(lng));
+        editor.commit();
+    }
+
+    public double[] getHomeLocation() {
+        String latS = preferences.getString("home_lat", "0");
+        String lngS = preferences.getString("home_lng", "0");
+        return new double[]{Double.parseDouble(latS), Double.parseDouble(lngS)};
+    }
 }

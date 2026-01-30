@@ -12,6 +12,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.ToggleButton;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -52,6 +53,11 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
 
     // --- UI: Volume Control ---
     private CardView cardVolumeControl;
+
+    private CardView cardTripInfo;
+    private TextView tvTripDist;
+    private ToggleButton btnTripBusiness;
+    private ImageView btnTripStop;
     private ImageView btnVolMain, btnVolAlert, btnVolMute;
     private boolean isVolumeExpanded = false;
 
@@ -100,6 +106,12 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
         searchResultsRv.setLayoutManager(new LinearLayoutManager(getContext()));
         searchAdapter = new SearchAdapter(this::onPlaceSuggestionClicked);
         searchResultsRv.setAdapter(searchAdapter);
+
+        // Trip Controls
+        cardTripInfo = view.findViewById(R.id.card_trip_info);
+        tvTripDist = view.findViewById(R.id.tv_trip_dist);
+        btnTripBusiness = view.findViewById(R.id.btn_trip_business);
+        btnTripStop = view.findViewById(R.id.btn_trip_stop);
     }
 
     private void setupListeners() {
@@ -147,6 +159,15 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
         btnVolAlert.setOnClickListener(v -> {
             viewModel.setAudioGuidance(Navigator.AudioGuidance.VOICE_ALERTS_ONLY);
             toggleVolumeExpand(); // Select & Close
+        });
+
+        // Trip Controlls
+        btnTripStop.setOnClickListener(v -> viewModel.stopTrip());
+
+        btnTripBusiness.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            viewModel.setTripBusiness(isChecked);
+            // Visual feedback
+            btnTripBusiness.setAlpha(isChecked ? 1.0f : 0.3f);
         });
     }
 
@@ -210,6 +231,25 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
             // If expanded, we want the icons to remain static options.
             if (!isVolumeExpanded) {
                 updateMainVolumeIcon(state);
+            }
+        });
+
+
+        // Trip Controls
+        viewModel.getCurrentTrip().observe(getViewLifecycleOwner(), trip -> {
+            if (trip != null && trip.isOpen()) {
+                cardTripInfo.setVisibility(View.VISIBLE);
+
+                // Update Distance
+                float distKm = trip.getDistanceMeters() / 1000f;
+                tvTripDist.setText(String.format("%.1f km", distKm));
+
+                // Update Toggle State (prevent loop)
+                if (btnTripBusiness.isChecked() != trip.isBusiness()) {
+                    btnTripBusiness.setChecked(trip.isBusiness());
+                }
+            } else {
+                cardTripInfo.setVisibility(View.GONE);
             }
         });
     }

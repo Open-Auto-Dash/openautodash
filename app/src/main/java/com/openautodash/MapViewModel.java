@@ -9,6 +9,8 @@ import androidx.lifecycle.MutableLiveData;
 
 import com.google.android.libraries.navigation.Navigator;
 import com.google.android.libraries.navigation.Waypoint;
+import com.openautodash.database.Trip;
+import com.openautodash.repositorys.VehicleRepository;
 import com.openautodash.utilities.LocalSettings;
 
 // Changed to AndroidViewModel to get Context
@@ -27,6 +29,8 @@ public class MapViewModel extends AndroidViewModel {
     private final MutableLiveData<Boolean> isSatelliteEnabled;
     private final MutableLiveData<Integer> audioGuidanceState;
 
+    private final LiveData<Trip> currentTrip;
+
     public MapViewModel(@NonNull Application application) {
         super(application);
         localSettings = new LocalSettings(application);
@@ -35,9 +39,14 @@ public class MapViewModel extends AndroidViewModel {
         isTrafficEnabled = new MutableLiveData<>(localSettings.getTrafficEnabled());
         isSatelliteEnabled = new MutableLiveData<>(localSettings.getSatelliteEnabled());
         audioGuidanceState = new MutableLiveData<>(localSettings.getAudioGuidanceState());
+
+        VehicleRepository repo = VehicleRepository.getInstance(application);
+        currentTrip = repo.getCurrentTripData();
     }
 
     // --- Getters ---
+
+    public LiveData<Trip> getCurrentTrip() { return currentTrip; }
     public LiveData<Boolean> getIsNavigating() { return isNavigating; }
     public LiveData<NavStats> getNavStats() { return navStats; }
     public LiveData<Waypoint> getStartNavigationCommand() { return startNavigationCommand; }
@@ -84,5 +93,16 @@ public class MapViewModel extends AndroidViewModel {
     public static class NavStats {
         public final String time, distance, eta;
         public NavStats(String t, String d, String e) { this.time = t; this.distance = d; this.eta = e; }
+    }
+
+    //  --- Trip Stuff
+
+    public void stopTrip() {
+        // Logic to manually stop
+        VehicleRepository.getInstance(getApplication()).closeCurrentTrip(null);
+    }
+
+    public void setTripBusiness(boolean isBusiness) {
+        VehicleRepository.getInstance(getApplication()).setTripBusiness(isBusiness);
     }
 }
