@@ -90,9 +90,11 @@ public class TopBarFragment extends Fragment {
             if (getActivity() != null) {
                 WindowManager.LayoutParams lp = getActivity().getWindow().getAttributes();
                 lp.screenBrightness = brightness;
-                getActivity().getWindow().setAttributes(lp);
-                brightnessDebugView.setText((int)(brightness * 255) + "br");
-            }
+                getActivity().getWindow().setAttributes(lp);}
+        });
+
+        repository.getSensorLux().observe(getViewLifecycleOwner(), lightSensor -> {
+            brightnessDebugView.setText(String.valueOf(lightSensor + "br"));
         });
 
         // 4. Bluetooth

@@ -33,6 +33,8 @@ public class VehicleRepository implements WeatherUpdateCallback {
     private final MutableLiveData<Location> currentLocation = new MutableLiveData<>();
     private final MutableLiveData<Weather> currentWeather = new MutableLiveData<>();
     private final MutableLiveData<Float> screenBrightness = new MutableLiveData<>();
+
+    private final MutableLiveData<String> sensorLux = new MutableLiveData<>("0");
     private final MutableLiveData<Boolean> isNightMode = new MutableLiveData<>();
     private final MutableLiveData<Boolean> isBluetoothConnected = new MutableLiveData<>();
     private final MutableLiveData<NetworkStatus> networkStatus = new MutableLiveData<>();
@@ -348,6 +350,7 @@ public class VehicleRepository implements WeatherUpdateCallback {
     public void updateAmbientLight(float rawLux) {
         if (System.currentTimeMillis() - lastBrightnessTime <= 1000) return;
         lastBrightnessTime = System.currentTimeMillis();
+        sensorLux.postValue(String.valueOf((int)rawLux));
 
         // Shift buffer
         for (int i = brightnessBuffer.length - 1; i > 0; i--) {
@@ -377,9 +380,18 @@ public class VehicleRepository implements WeatherUpdateCallback {
 
     private void determineNightMode(int avgLux) {
         boolean shouldBeNight = avgLux <= nightModeThreshold;
-        if (avgLux > nightModeThreshold + 30) shouldBeNight = false;
 
         Boolean current = isNightMode.getValue();
+
+        if(!shouldBeNight && current!= null && current){
+            for (int i = brightnessBuffer.length - 1; i > 0; i--) {
+                if(brightnessBuffer[i] < nightModeThreshold + 30){
+                    shouldBeNight = true;
+                    break;
+                }
+            }
+        }
+
         if (current == null || current != shouldBeNight) {
             isNightMode.postValue(shouldBeNight);
         }
@@ -392,6 +404,8 @@ public class VehicleRepository implements WeatherUpdateCallback {
     }
 
     public LiveData<Float> getScreenBrightness() { return screenBrightness; }
+
+    public LiveData<String> getSensorLux() {return sensorLux;}
     public LiveData<Boolean> getIsNightMode() { return isNightMode; }
     public LiveData<Location> getLocation() { return currentLocation; }
     public LiveData<Weather> getWeather() { return currentWeather; }
