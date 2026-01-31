@@ -83,6 +83,7 @@ public class MapFragment extends Fragment {
         setupNavigationFragment();
         initializeNavigationSdk();
         setupViewModelObservers();
+        setupRepositoryObservers();
     }
 
     private void setupViewModelObservers() {
@@ -133,6 +134,38 @@ public class MapFragment extends Fragment {
             if (mNavigator != null && state != null) {
                 mNavigator.setAudioGuidance(state);
                 Log.d(TAG, "Audio Guidance Set To: " + state);
+            }
+        });
+    }
+
+    private void setupRepositoryObservers() {
+        vehicleRepository.getNavigationRequest().observe(getViewLifecycleOwner(), request -> {
+            if (request != null) {
+                Log.d(TAG, "Repository received Nav Request: " + request.label);
+
+                // 1. Build the Waypoint using Google Nav SDK
+                Waypoint.Builder builder = Waypoint.builder();
+                builder.setTitle(request.label);
+
+                // Use Place ID if available (Better accuracy)
+                if (request.placeId != null && !request.placeId.isEmpty()) {
+                    try {
+                        builder.setPlaceIdString(request.placeId);
+                        Log.d(TAG, "Building Waypoint with Place ID: " + request.placeId);
+                    } catch (Waypoint.UnsupportedPlaceIdException e) {
+                        Log.e(TAG, "Invalid Place ID, falling back to Coords");
+                        builder.setLatLng(request.lat, request.lng);
+                    }
+                } else {
+                    // Fallback to Lat/Lng
+                    builder.setLatLng(request.lat, request.lng);
+                }
+
+                // 2. Trigger Navigation via ViewModel
+                viewModel.requestStartNavigation(builder.build());
+
+                // 3. Clear the request so we don't restart nav on screen rotation
+                vehicleRepository.clearNavigationRequest();
             }
         });
     }

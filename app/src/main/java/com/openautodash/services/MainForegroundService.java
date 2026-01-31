@@ -215,13 +215,16 @@ public class MainForegroundService extends Service implements SensorEventListene
     }
 
     @Override
-    public void onLocationPin(double latitude, double longitude, String label) {
-        // If the Key Fob sends a "Pin Location" command, we can handle it here
-        Intent intent = new Intent("location_pin_received");
-        intent.putExtra("latitude", latitude);
-        intent.putExtra("longitude", longitude);
-        intent.putExtra("label", label);
-        sendBroadcast(intent);
+    public void onLocationPin(double latitude, double longitude, String label, String placeId) {
+        Log.d(TAG, "Received PIN via BLE. ID: " + placeId + " Label: " + label);
+
+        // Push to Repository (The Bridge)
+        if (repository != null) {
+            repository.postNavigationRequest(latitude, longitude, label, placeId);
+        }
+
+        // Optional: Wake up screen if locked
+        wakeUpDevice();
     }
 
     @Override

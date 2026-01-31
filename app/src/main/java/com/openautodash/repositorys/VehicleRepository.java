@@ -15,6 +15,7 @@ import com.openautodash.database.DatabaseRepository;
 import com.openautodash.database.TelemetryLog;
 import com.openautodash.database.Trip;
 import com.openautodash.interfaces.WeatherUpdateCallback;
+import com.openautodash.object.NavigationRequest;
 import com.openautodash.utilities.LocalSettings;
 import com.openautodash.object.Weather;
 import com.openautodash.utilities.WeatherManager;
@@ -36,6 +37,7 @@ public class VehicleRepository implements WeatherUpdateCallback {
     private final MutableLiveData<Boolean> isBluetoothConnected = new MutableLiveData<>();
     private final MutableLiveData<NetworkStatus> networkStatus = new MutableLiveData<>();
     private final MutableLiveData<VehicleTelemetry> liveTelemetry = new MutableLiveData<>();
+    private final MutableLiveData<NavigationRequest> navigationRequest = new MutableLiveData<>();
 
     // --- Trip Logic State ---
     private Trip currentActiveTrip = null;
@@ -130,6 +132,19 @@ public class VehicleRepository implements WeatherUpdateCallback {
     // ============================================================================================
     // REGION: Location, Trip Logic & Weather
     // ============================================================================================
+
+    public LiveData<NavigationRequest> getNavigationRequest() {
+        return navigationRequest;
+    }
+
+    public void postNavigationRequest(double lat, double lng, String label, String placeId) {
+        navigationRequest.postValue(new NavigationRequest(lat, lng, label, placeId));
+    }
+
+    // 4. Method to clear the request after the Fragment consumes it (prevents loops)
+    public void clearNavigationRequest() {
+        navigationRequest.postValue(null);
+    }
 
     public void updateLocation(Location location) {
         currentLocation.postValue(location);

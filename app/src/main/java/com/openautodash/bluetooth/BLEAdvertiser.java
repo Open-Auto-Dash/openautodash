@@ -22,12 +22,9 @@ import android.os.Looper;
 import android.os.ParcelUuid;
 import android.util.Log;
 import androidx.core.app.ActivityCompat;
-import androidx.lifecycle.MutableLiveData;
 
-import com.openautodash.MainActivity;
 import com.openautodash.interfaces.BluetoothKeyCallback;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -48,7 +45,7 @@ public class BLEAdvertiser {
 
     private final Context context;
     private final BluetoothKeyCallback keyCallback;
-    private boolean currentKeyConnected;
+    private boolean currentKeyConnected = false; // Initialized explicitly
     private final MessageHandler messageHandler;
     private final Handler reconnectionHandler = new Handler(Looper.getMainLooper());
 
@@ -64,10 +61,9 @@ public class BLEAdvertiser {
     private boolean isAdvertising = false;
     private int retryCount = 0;
 
-    // Interface for handling different types of messages
     public interface MessageHandler {
         void onRssiUpdate(BluetoothDevice device, int rssi);
-        void onLocationPin(double latitude, double longitude, String label);
+        void onLocationPin(double latitude, double longitude, String label, String placeId);
         void onVehicleCommand(String command, String[] params);
         void onTelemetryRequest(BluetoothDevice device);
     }
@@ -264,6 +260,14 @@ public class BLEAdvertiser {
         String type = parts[0];
         String data = parts[1];
 
+        // SAFETY: If we are receiving data, we ARE connected.
+        // Ensure state is synced if it somehow got out of sync.
+        if (!currentKeyConnected) {
+            Log.d(TAG, "Data received while logically disconnected. Forcing Connect.");
+            currentKeyConnected = true;
+            keyCallback.onConnected();
+        }
+
         switch (type) {
             case "RSSI":
                 try {
@@ -295,7 +299,7 @@ public class BLEAdvertiser {
         if (rssi > RSSI_CONNECT_THRESHOLD && !currentKeyConnected) {  // Signal better than -65
             currentKeyConnected = true;
             keyCallback.onConnected();
-        } else if (rssi < RSSI_DISCONNECT_THRESHOLD && currentKeyConnected) {  // Signal worse than -95
+        } else if (rssi < RSSI_DISCONNECT_THRESHOLD && currentKeyConnected) {  // Signal worse than -80
             currentKeyConnected = false;
             keyCallback.onDisconnected();
         }
@@ -303,13 +307,20 @@ public class BLEAdvertiser {
 
     private void handleLocationPin(String data) {
         String[] parts = data.split(",");
-        if (parts.length != 3) return;
+        if (parts.length < 3) return;
 
         try {
             double latitude = Double.parseDouble(parts[0]);
             double longitude = Double.parseDouble(parts[1]);
             String label = parts[2];
-            messageHandler.onLocationPin(latitude, longitude, label);
+
+            String placeId = null;
+            if (parts.length >= 4 && !parts[3].trim().isEmpty()) {
+                placeId = parts[3].trim();
+            }
+
+            messageHandler.onLocationPin(latitude, longitude, label, placeId);
+
         } catch (NumberFormatException e) {
             Log.e(TAG, "Invalid location data: " + data);
         }
@@ -325,16 +336,32 @@ public class BLEAdvertiser {
         messageHandler.onVehicleCommand(command, params);
     }
 
+    // --- FIX: Sync internal boolean with physical events ---
+
     private void handleConnection(BluetoothDevice device) {
         Log.d(TAG, "Device connected: " + device.getAddress());
-        keyCallback.onConnected();
+        connectedDevices.add(device);
+
+        // Ensure state logic is synced
+        if (!currentKeyConnected) {
+            currentKeyConnected = true;
+            keyCallback.onConnected();
+        }
     }
 
     private void handleDisconnection(BluetoothDevice device) {
         Log.d(TAG, "Device disconnected: " + device.getAddress());
+        connectedDevices.remove(device);
+        deviceRssiMap.remove(device);
 
-        keyCallback.onDisconnected();
+        // Ensure state logic is synced
+        if (currentKeyConnected) {
+            currentKeyConnected = false;
+            keyCallback.onDisconnected();
+        }
     }
+
+    // -----------------------------------------------------
 
     @SuppressLint("MissingPermission")
     public void sendMessage(String message) {
@@ -361,7 +388,6 @@ public class BLEAdvertiser {
                     .append(entry.getValue())
                     .append(",");
         }
-        // Remove trailing comma
         if (message.length() > 0 && message.charAt(message.length() - 1) == ',') {
             message.setLength(message.length() - 1);
         }
@@ -383,6 +409,7 @@ public class BLEAdvertiser {
         return ActivityCompat.checkSelfPermission(context,
                 Manifest.permission.BLUETOOTH_ADVERTISE) == PackageManager.PERMISSION_GRANTED;
     }
+
     @SuppressLint("MissingPermission")
     public void stopAdvertising() {
         Log.d(TAG, "Stopping BLE advertising");
@@ -409,6 +436,7 @@ public class BLEAdvertiser {
         connectedDevices.clear();
         deviceRssiMap.clear();
         isAdvertising = false;
+        currentKeyConnected = false; // Reset state on stop
     }
 
     public boolean isAdvertising() {
