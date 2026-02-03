@@ -85,6 +85,7 @@ public class MainForegroundService extends Service implements SensorEventListene
         acquireWakeLocks();
         requestBatteryOptimizationExemption();
         setupPeriodicAlarm();
+        setupSpotifyListener();
 
         // Start BLE Advertising
         bleAdvertiser = new BLEAdvertiser(this, this, this);
@@ -410,6 +411,14 @@ public class MainForegroundService extends Service implements SensorEventListene
         } else {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + ALARM_INTERVAL, pendingIntent);
         }
+    }
+
+    private void setupSpotifyListener(){
+        repository.getSpotifyTrack().observeForever(spotifyTrack -> {
+            if (spotifyTrack != null && Boolean.TRUE.equals(repository.getIsLiveTrackingEnabled().getValue())) {
+                repository.uploadSpotifyUpdate(spotifyTrack);
+            }
+        });
     }
 
     @Override

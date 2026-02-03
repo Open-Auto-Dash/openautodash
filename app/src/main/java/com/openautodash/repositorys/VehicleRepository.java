@@ -3,19 +3,20 @@ package com.openautodash.repositorys;
 import android.annotation.SuppressLint;
 import android.app.Application;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.location.Location;
 import android.location.LocationManager;
 import android.util.Log;
 
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.Observer;
 
 import com.openautodash.database.DatabaseRepository;
 import com.openautodash.database.TelemetryLog;
 import com.openautodash.database.Trip;
 import com.openautodash.interfaces.WeatherUpdateCallback;
 import com.openautodash.object.NavigationRequest;
+import com.openautodash.utilities.LiveTrackingManager;
 import com.openautodash.utilities.LocalSettings;
 import com.openautodash.object.Weather;
 import com.openautodash.utilities.WeatherManager;
@@ -28,6 +29,7 @@ public class VehicleRepository implements WeatherUpdateCallback {
     private final LocalSettings localSettings;
     private final DatabaseRepository databaseRepository;
     private final WeatherManager weatherManager;
+    private final LiveTrackingManager liveTrackingManager;
 
     // --- Live Data Sources ---
     private final MutableLiveData<Location> currentLocation = new MutableLiveData<>();
@@ -40,6 +42,8 @@ public class VehicleRepository implements WeatherUpdateCallback {
     private final MutableLiveData<NetworkStatus> networkStatus = new MutableLiveData<>();
     private final MutableLiveData<VehicleTelemetry> liveTelemetry = new MutableLiveData<>();
     private final MutableLiveData<NavigationRequest> navigationRequest = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> isLiveTrackingEnabled = new MutableLiveData<>(false);
+    private final MutableLiveData<SpotifyTrack> spotifyTrack = new MutableLiveData<>();
 
     // --- Trip Logic State ---
     private Trip currentActiveTrip = null;
@@ -69,6 +73,9 @@ public class VehicleRepository implements WeatherUpdateCallback {
 
         // Weather Manager
         this.weatherManager = new WeatherManager(context, null, this);
+
+        // Tracking Manager
+        this.liveTrackingManager = new LiveTrackingManager(context);
 
         // Load settings
         this.brightnessThresholds = localSettings.getBrightnessSetting();
@@ -154,6 +161,9 @@ public class VehicleRepository implements WeatherUpdateCallback {
         // 1. Handle Trip Recording
         handleTripLogic(location);
 
+        // Handle live tracking updates
+        handleLiveTracking(location);
+
         // 2. Handle Weather Updates
         boolean shouldUpdate = false;
         if (lastWeatherLocation == null) {
@@ -224,6 +234,12 @@ public class VehicleRepository implements WeatherUpdateCallback {
         // If we haven't moved in 30 mins AND we are at home, close it.
         if (currentActiveTrip != null && (now - lastMovementTime > TRIP_TIMEOUT)) {
             checkHomeAndClose(location);
+        }
+    }
+
+    private void handleLiveTracking(Location location){
+        if(isLiveTrackingEnabled.getValue() != null && isLiveTrackingEnabled.getValue()){
+            liveTrackingManager.updateLocation(location, liveTelemetry.getValue());
         }
     }
 
@@ -413,6 +429,29 @@ public class VehicleRepository implements WeatherUpdateCallback {
     public LiveData<NetworkStatus> getNetworkStatus() { return networkStatus; }
     public LiveData<VehicleTelemetry> getLiveTelemetry() { return liveTelemetry; }
 
+    // Tracking and Spotify
+    public LiveData<Boolean> getIsLiveTrackingEnabled() {
+        return isLiveTrackingEnabled;
+    }
+
+    public void setLiveTrackingEnabled(boolean isEnabled) {
+        isLiveTrackingEnabled.postValue(isEnabled);
+    }
+
+    public LiveData<SpotifyTrack> getSpotifyTrack() {
+        return spotifyTrack;
+    }
+
+    public void setSpotifyTrack(SpotifyTrack spotifyTrack) {
+        this.spotifyTrack.postValue(new SpotifyTrack(spotifyTrack.title, spotifyTrack.artist, spotifyTrack.artUrl, spotifyTrack.progress));
+    }
+
+    public void uploadSpotifyUpdate(SpotifyTrack track) {
+        if (liveTrackingManager != null) {
+            liveTrackingManager.updateSpotify(track);
+        }
+    }
+
     public static class NetworkStatus {
         public final int signalStrength;
         public final int networkType;
@@ -426,5 +465,19 @@ public class VehicleRepository implements WeatherUpdateCallback {
         public double accelX = 0;
         public double accelY = 0;
         public double accelZ = 0;
+    }
+
+    public static class SpotifyTrack {
+        public final String title;
+        public final String artist;
+        public final String artUrl;
+        public final int progress;
+
+        public SpotifyTrack(String title, String artist, String artUrl, int progress) {
+            this.title = title;
+            this.artist = artist;
+            this.artUrl = artUrl;
+            this.progress = progress;
+        }
     }
 }

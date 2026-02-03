@@ -1,10 +1,11 @@
 package com.openautodash.ui;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
-import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Base64;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -16,14 +17,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.widget.AppCompatSeekBar;
-import androidx.appcompat.widget.AppCompatTextView;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.openautodash.MainActivity;
 import com.openautodash.R;
 import com.openautodash.interfaces.OverpassAPICallback;
 import com.openautodash.repositorys.VehicleRepository;
@@ -31,17 +30,14 @@ import com.openautodash.utilities.OverpassAPI;
 import com.spotify.android.appremote.api.ConnectionParams;
 import com.spotify.android.appremote.api.Connector;
 import com.spotify.android.appremote.api.SpotifyAppRemote;
-import com.spotify.protocol.client.CallResult;
 import com.spotify.protocol.client.ErrorCallback;
 import com.spotify.protocol.client.Subscription;
 import com.spotify.protocol.types.Artist;
-import com.spotify.protocol.types.Capabilities;
 import com.spotify.protocol.types.Image;
-import com.spotify.protocol.types.LibraryState;
-import com.spotify.protocol.types.PlayerContext;
 import com.spotify.protocol.types.PlayerState;
 import com.spotify.protocol.types.Repeat;
 
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Locale;
 
@@ -91,6 +87,13 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
     boolean isLiked;
     String trackURI;
 
+    // Data for Cloud Sync
+    private String currentTrackTitle = "";
+    private String currentTrackArtist = "";
+    private long currentTrackProgress = 0;
+    private String currentTrackArtBase64 = "";
+    private String lastSentTrackUri = "";
+
     Subscription<PlayerState> mPlayerStateSubscription;
     private final ErrorCallback mErrorCallback = this::logError;
 
@@ -125,6 +128,7 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
             locationUpdatesCount++;
 
             // Speed Conversion
+            float speedKph = location.getSpeed() * 3.6f;
             float speedCalcVal = metric ? 3.6f : 2.236936f;
 
             if (speed != null) {
@@ -213,7 +217,6 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
         });
 
         onDisconnected();
-        onConnectAndAuthorizedClicked(null);
         return view;
     }
 
@@ -316,35 +319,96 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
                     // Update Play/Pause Button
                     if (playerState.isPaused) {
                         mPlayPauseButton.setImageResource(R.drawable.ic_baseline_play);
+                        currentTrackTitle = "";
+                        currentTrackArtist = "";
+                        currentTrackProgress = 0;
                     } else {
                         mPlayPauseButton.setImageResource(R.drawable.ic_baseline_pause);
                     }
                     DrawableCompat.setTint(mPlayPauseButton.getDrawable(), getResources().getColor(R.color.colorIconsDefault));
 
+                    // Handle Album Art for Cloud
                     if (playerState.track != null) {
-                        mSpotifyAppRemote.getImagesApi()
-                                .getImage(playerState.track.imageUri, Image.Dimension.LARGE)
-                                .setResultCallback(bitmap -> mCoverArtImageView.setImageBitmap(bitmap));
+                        // Only fetch and convert bitmap if track has changed to save CPU/Bandwidth
+                        if (!playerState.track.uri.equals(lastSentTrackUri)) {
+                            lastSentTrackUri = playerState.track.uri;
 
-                        mSeekBar.setMax((int) playerState.track.duration);
-                        mTrackProgressBar.setDuration(playerState.track.duration);
-                        mTrackProgressBar.update(playerState.playbackPosition);
+                            mSpotifyAppRemote.getImagesApi()
+                                    .getImage(playerState.track.imageUri, Image.Dimension.SMALL) // Use SMALL for upload
+                                    .setResultCallback(bitmap -> {
+                                        // Update UI (maybe use Large for UI, but reusing small for now or fetch twice)
+                                        mCoverArtImageView.setImageBitmap(bitmap);
+                                        // Convert to Base64 for Cloud
+                                        convertBitmapToBase64(bitmap);
+                                    });
+                        } else {
+                            // Track hasn't changed, just update UI progress
+                            mSeekBar.setMax((int) playerState.track.duration);
+                            mTrackProgressBar.setDuration(playerState.track.duration);
+                            mTrackProgressBar.update(playerState.playbackPosition);
+                            trackTimeLeft.setText(millisToStringStamp(playerState.playbackPosition));
+                            trackTimeRight.setText(millisToStringStamp(playerState.track.duration));
 
-                        trackTimeLeft.setText(millisToStringStamp(playerState.playbackPosition));
-                        trackTimeRight.setText(millisToStringStamp(playerState.track.duration));
+                            // --- CLOUD SYNC UPDATES ---
+
+                            // 1. Calculate Progress Percentage (0-100)
+                            if (playerState.track.duration > 0) {
+                                currentTrackProgress = (playerState.playbackPosition * 100) / playerState.track.duration;
+                            } else {
+                                currentTrackProgress = 0;
+                            }
+
+                            // 2. Update Title
+                            currentTrackTitle = playerState.track.name;
+
+                            // 3. Update Artist
+                            List<Artist> artists = playerState.track.artists;
+                            StringBuilder sb = new StringBuilder();
+                            for (Artist artist : artists) {
+                                sb.append(artist.name).append(", ");
+                            }
+                            if (!artists.isEmpty()) sb.setLength(sb.length() - 2);
+                            currentTrackArtist = sb.toString();
+
+                            VehicleRepository.SpotifyTrack track =  new VehicleRepository.SpotifyTrack(
+                                    currentTrackTitle,
+                                    currentTrackArtist,
+                                    null,
+                                    (int) currentTrackProgress
+                            );
+
+                            vehicleRepository.setSpotifyTrack(track);
+
+                        }
                     }
                     mSeekBar.setEnabled(true);
                 }
             };
 
-    public void onConnectAndAuthorizedClicked(View view) {
-        connect(true);
+    // Helper to convert Bitmap to String for PHP
+    private void convertBitmapToBase64(Bitmap bitmap) {
+        new Thread(() -> {
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, byteArrayOutputStream); // 70% quality to save data
+            byte[] byteArray = byteArrayOutputStream.toByteArray();
+            currentTrackArtBase64 = "data:image/jpeg;base64," + Base64.encodeToString(byteArray, Base64.DEFAULT);
+
+            VehicleRepository.SpotifyTrack track =  new VehicleRepository.SpotifyTrack(
+                    currentTrackTitle,
+                    currentTrackArtist,
+                    currentTrackArtBase64,
+                    (int) currentTrackProgress
+            );
+
+            vehicleRepository.setSpotifyTrack(track);
+
+        }).start();
     }
 
     private void connect(boolean showAuthView) {
         SpotifyAppRemote.disconnect(mSpotifyAppRemote);
         SpotifyAppRemote.connect(
-                getContext(),
+                requireActivity(),
                 new ConnectionParams.Builder(CLIENT_ID)
                         .setRedirectUri(REDIRECT_URI)
                         .showAuthView(showAuthView)
@@ -383,12 +447,12 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
     }
 
     private void onDisconnected(){
-        mConnectButton.setVisibility(View.VISIBLE);
-        new Handler().postDelayed(() -> {
-            if (getContext() != null && isAdded()) {
-                connect(false);
-            }
-        }, 5000);
+//        mConnectButton.setVisibility(View.VISIBLE);
+//        new Handler().postDelayed(() -> {
+//            if (getContext() != null && isAdded()) {
+//                connect(false);
+//            }
+//        }, 5000);
     }
 
     public void onToggleShuffleButtonClicked(View view) {
@@ -428,7 +492,7 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
     private void logError(Throwable throwable) {
         Context context = getContext();
         if(context != null){
-            Toast.makeText(context, "Error occurred", Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, "Spotify Connection Error", Toast.LENGTH_SHORT).show();
             Log.e(TAG, "Spotify Error", throwable);
         }
     }
@@ -462,8 +526,19 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
             @Override
             public void run() {
                 int progress = mSeekBar.getProgress();
+
+                // 1. Update Local UI (Existing)
                 mSeekBar.setProgress(progress + LOOP_DURATION);
                 trackProgress.setText(millisToStringStamp(progress));
+
+                // 2. --- NEW: Update Cloud Variable ---
+                // We calculate the percentage (0-100) based on the local SeekBar's current position and max.
+                if (mSeekBar.getMax() > 0) {
+                    // (Current / Max) * 100
+                    currentTrackProgress = (long) ((float) progress / mSeekBar.getMax() * 100);
+                }
+                // -------------------------------------
+
                 mHandler.postDelayed(mSeekRunnable, LOOP_DURATION);
             }
         };

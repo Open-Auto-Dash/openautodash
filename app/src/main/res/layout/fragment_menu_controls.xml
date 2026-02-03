@@ -3,20 +3,112 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/colorBackgroundDefault"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/tv_controls_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Controls"
+        android:textColor="@color/colorTextTitle"
+        android:textSize="22sp"
+        android:fontFamily="sans-serif-medium"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/tv_label_quick"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="QUICK ACTIONS"
+        android:textColor="@color/colorTextThin"
+        android:textSize="11sp"
+        android:letterSpacing="0.1"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_controls_title" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/b_live_tracking"
+        android:layout_width="0dp"
+        android:layout_height="64dp"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/btn_tesla"
+        android:text="Live Tracking"
+        android:textAllCaps="false"
+        android:textColor="@color/colorTextBody"
+        android:fontFamily="sans-serif-medium"
+        app:layout_constraintEnd_toStartOf="@+id/b_sentry"
+        app:layout_constraintHorizontal_weight="1"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_label_quick" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/b_sentry"
+        android:layout_width="0dp"
+        android:layout_height="64dp"
+        android:layout_marginStart="12dp"
+        android:background="@drawable/btn_tesla"
+        android:text="Sentry Mode"
+        android:textAllCaps="false"
+        android:textColor="@color/colorTextBody"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_weight="1"
+        app:layout_constraintStart_toEndOf="@id/b_live_tracking"
+        app:layout_constraintTop_toTopOf="@id/b_live_tracking" />
+
+    <TextView
+        android:id="@+id/tv_label_vehicle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="VEHICLE ACCESS"
+        android:textColor="@color/colorTextThin"
+        android:textSize="11sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/b_live_tracking" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/b_frunk"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/btn_tesla"
+        android:text="Front Trunk"
+        android:textAllCaps="false"
+        android:textColor="@color/colorTextBody"
+        app:layout_constraintEnd_toStartOf="@+id/b_trunk"
+        app:layout_constraintHorizontal_weight="1"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_label_vehicle" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/b_trunk"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="12dp"
+        android:background="@drawable/btn_tesla"
+        android:text="Rear Trunk"
+        android:textAllCaps="false"
+        android:textColor="@color/colorTextBody"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_weight="1"
+        app:layout_constraintStart_toEndOf="@id/b_frunk"
+        app:layout_constraintTop_toTopOf="@id/b_frunk" />
 
     <Button
         android:id="@+id/b_restart_app_menu_controls"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:layout_marginTop="16dp"
-        android:backgroundTint="@color/colorBackgroundDefault"
-        android:text="Restart App"
-        android:textColor="@color/colorIconsBold"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="@color/colorButtonDanger"
+        android:text="Restart System"
+        android:textColor="@color/colorBackgroundLight"
+        android:textSize="12sp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

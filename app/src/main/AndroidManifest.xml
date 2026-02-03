@@ -56,9 +56,6 @@
         android:supportsRtl="false"
         android:theme="@style/Theme.OpenAutoDash"
         tools:targetApi="31">
-        <activity
-            android:name=".SpotifyLoginActivity"
-            android:exported="false" />
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
@@ -79,6 +76,21 @@
             <meta-data
                 android:name="android.app.lib_name"
                 android:value="" />
+        </activity>
+
+        <activity
+            android:name="com.spotify.sdk.android.auth.LoginActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="true"
+            tools:replace="android:exported">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="@string/com_spotify_sdk_redirect_scheme"
+                    android:host="@string/com_spotify_sdk_redirect_host" />
+            </intent-filter>
         </activity>
 
 
