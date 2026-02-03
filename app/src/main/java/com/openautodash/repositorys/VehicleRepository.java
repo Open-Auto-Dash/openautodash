@@ -3,7 +3,6 @@ package com.openautodash.repositorys;
 import android.annotation.SuppressLint;
 import android.app.Application;
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.location.Location;
 import android.location.LocationManager;
 import android.util.Log;
@@ -47,8 +46,13 @@ public class VehicleRepository implements WeatherUpdateCallback {
 
     // --- Trip Logic State ---
     private Trip currentActiveTrip = null;
-    private Location lastTripLocation = null; // Used for distance calculation
+    private Location lastTripLocation = null;
     private long lastMovementTime = 0;
+
+    // Accumulators to fix "Database Loop" race condition
+    private float sessionDistance = 0f;
+    private int currentTripId = -1;
+
     private static final long TRIP_TIMEOUT = 30 * 60 * 1000; // 30 Minutes
     private static final float MOVEMENT_THRESHOLD = 5.0f / 3.6f; // 5 km/h in m/s
 
@@ -61,7 +65,7 @@ public class VehicleRepository implements WeatherUpdateCallback {
     // --- Sensor State ---
     private double ax = 0, ay = 0, az = 0;
     private int rpm = 0;
-    private int speed = 0; // OBD Speed (different from GPS speed)
+    private int speed = 0; // OBD Speed
 
     // --- Weather Throttling ---
     private Location lastWeatherLocation;
@@ -71,41 +75,45 @@ public class VehicleRepository implements WeatherUpdateCallback {
         this.localSettings = new LocalSettings(context);
         this.databaseRepository = new DatabaseRepository((Application) context.getApplicationContext());
 
-        // Weather Manager
         this.weatherManager = new WeatherManager(context, null, this);
-
-        // Tracking Manager
         this.liveTrackingManager = new LiveTrackingManager(context);
 
-        // Load settings
         this.brightnessThresholds = localSettings.getBrightnessSetting();
         this.nightModeThreshold = localSettings.getNightModeSetPoint();
 
         // Init defaults
         isNightMode.setValue(localSettings.getIsNight());
-        networkStatus.setValue(new NetworkStatus(0, 0, false));
+        networkStatus.setValue(new NetworkStatus(0, "", false));
         liveTelemetry.setValue(new VehicleTelemetry());
 
-        // Init brightness
         if (brightnessThresholds.length > 0) {
             float normalized = brightnessThresholds[0] / 255f;
             screenBrightness.setValue(normalized);
         }
 
-        // --- TRIP SYNC MAGIC ---
-        // We observe the Database. When a trip is inserted/updated, this fires.
-        // This ensures 'currentActiveTrip' always has the valid ID from the DB.
+        // --- TRIP SYNC MAGIC (FIXED) ---
+        // Only load data from DB if it is a NEW trip ID (or startup).
+        // This prevents the DB from overwriting our live local counting.
         databaseRepository.getLiveOpenTrip().observeForever(trip -> {
-            this.currentActiveTrip = trip;
             if (trip != null) {
-                Log.d(TAG, "Trip Sync: Active Trip ID: " + trip.getId() + " Dist: " + trip.getDistanceMeters());
+                // Only sync if we haven't seen this trip ID yet (e.g. app restart)
+                if (this.currentTripId != trip.getId()) {
+                    this.currentTripId = trip.getId();
+                    this.sessionDistance = trip.getDistanceMeters(); // Restore distance
+                    this.currentActiveTrip = trip;
+                    Log.d(TAG, "Trip Sync: Loaded Trip " + trip.getId() + " at " + sessionDistance + "m");
+                }
             } else {
+                // Trip closed or deleted
+                this.currentActiveTrip = null;
+                this.currentTripId = -1;
+                this.sessionDistance = 0f;
                 Log.d(TAG, "Trip Sync: No active trip.");
             }
         });
 
         // Kickstart things
-//        fetchLastKnownLocation(context);
+        fetchLastKnownLocation(context);
     }
 
     public static synchronized VehicleRepository getInstance(Context context) {
@@ -129,7 +137,6 @@ public class VehicleRepository implements WeatherUpdateCallback {
                 lastLoc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
             }
             if (lastLoc != null) {
-                // Fake null so weather updates immediately on boot
                 lastWeatherLocation = null;
                 updateLocation(lastLoc);
             }
@@ -150,7 +157,6 @@ public class VehicleRepository implements WeatherUpdateCallback {
         navigationRequest.postValue(new NavigationRequest(lat, lng, label, placeId));
     }
 
-    // 4. Method to clear the request after the Fragment consumes it (prevents loops)
     public void clearNavigationRequest() {
         navigationRequest.postValue(null);
     }
@@ -158,13 +164,10 @@ public class VehicleRepository implements WeatherUpdateCallback {
     public void updateLocation(Location location) {
         currentLocation.postValue(location);
 
-        // 1. Handle Trip Recording
         handleTripLogic(location);
-
-        // Handle live tracking updates
         handleLiveTracking(location);
 
-        // 2. Handle Weather Updates
+        // Weather Logic
         boolean shouldUpdate = false;
         if (lastWeatherLocation == null) {
             shouldUpdate = true;
@@ -185,53 +188,51 @@ public class VehicleRepository implements WeatherUpdateCallback {
     }
 
     private void handleTripLogic(Location location) {
-        float gpsSpeed = location.getSpeed(); // m/s
+        float gpsSpeed = location.getSpeed();
         long now = System.currentTimeMillis();
 
-        // --- 1. DETECT MOVEMENT ---
-        if (gpsSpeed > MOVEMENT_THRESHOLD) {
-            lastMovementTime = now;
-
-            // Start new trip if we are moving and don't have one
-            if (currentActiveTrip == null) {
-                Log.i(TAG, "Movement detected. Starting new Trip.");
-                Trip newTrip = new Trip(now, location.getLatitude(), location.getLongitude());
-                databaseRepository.startNewTrip(newTrip);
-                // Note: currentActiveTrip will be updated automatically by the observeForever callback above
-                // once the DB insert completes.
-
-                lastTripLocation = location; // Reset distance calculation anchor
-            }
-        }
-
-        // --- 2. UPDATE ACTIVE TRIP ---
+        // 1. ALWAYS calculate distance if trip is open (Decoupled from speed check)
         if (currentActiveTrip != null && currentActiveTrip.isOpen()) {
-
-            // Calculate Distance Delta
             if (lastTripLocation != null) {
                 float distanceDelta = location.distanceTo(lastTripLocation);
-                // Only add if it makes sense (e.g., > 10m to avoid GPS drift while standing still)
-                if (distanceDelta > 0) {
-                    float newTotal = currentActiveTrip.getDistanceMeters() + distanceDelta;
-                    currentActiveTrip.setDistanceMeters(newTotal);
-                }
-            }
-            lastTripLocation = location;
 
-            // Update End Time & Location (Always keep these current)
+                // FILTER: Only add if delta > 2m (Jitter) AND accuracy is good
+                if (distanceDelta > 2.0f && location.getAccuracy() < 20) {
+                    sessionDistance += distanceDelta; // Update local accumulator
+
+                    currentActiveTrip.setDistanceMeters(sessionDistance);
+                    lastTripLocation = location; // Move anchor only on valid distance
+
+                    // Update DB (Safe now, as observer ignores the echo)
+                    databaseRepository.updateTrip(currentActiveTrip);
+                }
+            } else {
+                lastTripLocation = location;
+            }
+
+            // Always update time/position
             currentActiveTrip.setEndTime(now);
             currentActiveTrip.setEndLat(location.getLatitude());
             currentActiveTrip.setEndLng(location.getLongitude());
 
-            // Persist Trip Updates to DB
-            databaseRepository.updateTrip(currentActiveTrip);
-
-            // Record Telemetry Point
             recordTelemetry(location);
         }
 
-        // --- 3. CHECK FOR TIMEOUT / HOME ---
-        // If we haven't moved in 30 mins AND we are at home, close it.
+        // 2. DETECT MOVEMENT (Only for Starting new trips)
+        if (gpsSpeed > MOVEMENT_THRESHOLD) {
+            lastMovementTime = now;
+
+            if (currentActiveTrip == null) {
+                Log.i(TAG, "Movement detected. Starting new Trip.");
+                Trip newTrip = new Trip(now, location.getLatitude(), location.getLongitude());
+                databaseRepository.startNewTrip(newTrip);
+                // Note: currentActiveTrip/sessionDistance updated by ObserveForever callback
+
+                lastTripLocation = location;
+            }
+        }
+
+        // 3. TIMEOUT CHECK
         if (currentActiveTrip != null && (now - lastMovementTime > TRIP_TIMEOUT)) {
             checkHomeAndClose(location);
         }
@@ -244,15 +245,13 @@ public class VehicleRepository implements WeatherUpdateCallback {
     }
 
     private void checkHomeAndClose(Location location) {
-        double[] homeCoords = localSettings.getHomeLocation(); // You added this to LocalSettings previously
+        double[] homeCoords = localSettings.getHomeLocation();
 
-        // Simple 0,0 check to ensure home is actually set
         if (homeCoords[0] != 0 && homeCoords[1] != 0) {
             float[] results = new float[1];
             Location.distanceBetween(location.getLatitude(), location.getLongitude(), homeCoords[0], homeCoords[1], results);
             float distanceToHome = results[0];
 
-            // If within 200 meters of home
             if (distanceToHome < 200) {
                 Log.i(TAG, "Home & Timeout detected. Closing Trip.");
                 closeCurrentTrip(location);
@@ -261,31 +260,29 @@ public class VehicleRepository implements WeatherUpdateCallback {
     }
 
     private void recordTelemetry(Location loc) {
-        // Safety: Do not record if trip hasn't synced with DB yet (ID would be 0 or null)
         if (currentActiveTrip == null || currentActiveTrip.getId() == 0) return;
 
-        // Create fully populated log
         TelemetryLog log = new TelemetryLog(
                 currentActiveTrip.getId(),
-                0, // Segment (implement if needed)
+                0,
                 loc.getLatitude(),
                 loc.getLongitude(),
                 loc.getAltitude(),
                 loc.getSpeed(),
                 loc.getBearing(),
-                0, // Heading ( Compass vs GPS bearing)
-                0, // SpeedLimit
-                0, // RoadType
-                ax, ay, az, // Real Accelerometer Data
-                4, // Vehicle State (Running) - You could make this dynamic based on ignition
-                rpm, // Real RPM
-                0, // Voltage
-                0, // Gear
-                0, // Break
-                0, // Accelerator
-                0, // Steering
-                0, // Cruise
-                0, // Occupants
+                0,
+                0,
+                0,
+                ax, ay, az,
+                4,
+                rpm,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
                 System.currentTimeMillis()
         );
         databaseRepository.insertTelemetryLog(log);
@@ -301,13 +298,13 @@ public class VehicleRepository implements WeatherUpdateCallback {
             }
             databaseRepository.updateTrip(currentActiveTrip);
 
-            // Clear local references
             currentActiveTrip = null;
             lastTripLocation = null;
+            sessionDistance = 0f;
+            currentTripId = -1;
         }
     }
 
-    // Call this from ViewModel
     public void setTripBusiness(boolean isBusiness) {
         if (currentActiveTrip != null) {
             currentActiveTrip.setBusiness(isBusiness);
@@ -315,7 +312,6 @@ public class VehicleRepository implements WeatherUpdateCallback {
         }
     }
 
-    // Call this from ViewModel to get Live Data
     public LiveData<Trip> getCurrentTripData() {
         return databaseRepository.getLiveOpenTrip();
     }
@@ -325,15 +321,12 @@ public class VehicleRepository implements WeatherUpdateCallback {
     // ============================================================================================
 
     public void updateAccelerometer(float x, float y, float z) {
-        // Update local state for the next Telemetry Record
         this.ax = x;
         this.ay = y;
         this.az = z;
-
         updateTelemetryObject();
     }
 
-    // Call this if you have OBD/CanBus data coming in
     public void updateVehicleData(int rpm, int speed) {
         this.rpm = rpm;
         this.speed = speed;
@@ -355,8 +348,8 @@ public class VehicleRepository implements WeatherUpdateCallback {
         isBluetoothConnected.postValue(connected);
     }
 
-    public void updateNetworkStatus(int signalStrength, int networkType, boolean isWifi) {
-        networkStatus.postValue(new NetworkStatus(signalStrength, networkType, isWifi));
+    public void updateNetworkStatus(int signalStrength, String type, boolean isWifi) {
+        networkStatus.postValue(new NetworkStatus(signalStrength, type, isWifi));
     }
 
     // ============================================================================================
@@ -368,7 +361,6 @@ public class VehicleRepository implements WeatherUpdateCallback {
         lastBrightnessTime = System.currentTimeMillis();
         sensorLux.postValue(String.valueOf((int)rawLux));
 
-        // Shift buffer
         for (int i = brightnessBuffer.length - 1; i > 0; i--) {
             brightnessBuffer[i] = brightnessBuffer[i - 1];
         }
@@ -396,7 +388,6 @@ public class VehicleRepository implements WeatherUpdateCallback {
 
     private void determineNightMode(int avgLux) {
         boolean shouldBeNight = avgLux <= nightModeThreshold;
-
         Boolean current = isNightMode.getValue();
 
         if(!shouldBeNight && current!= null && current){
@@ -420,8 +411,7 @@ public class VehicleRepository implements WeatherUpdateCallback {
     }
 
     public LiveData<Float> getScreenBrightness() { return screenBrightness; }
-
-    public LiveData<String> getSensorLux() {return sensorLux;}
+    public LiveData<String> getSensorLux() { return sensorLux; }
     public LiveData<Boolean> getIsNightMode() { return isNightMode; }
     public LiveData<Location> getLocation() { return currentLocation; }
     public LiveData<Weather> getWeather() { return currentWeather; }
@@ -429,7 +419,6 @@ public class VehicleRepository implements WeatherUpdateCallback {
     public LiveData<NetworkStatus> getNetworkStatus() { return networkStatus; }
     public LiveData<VehicleTelemetry> getLiveTelemetry() { return liveTelemetry; }
 
-    // Tracking and Spotify
     public LiveData<Boolean> getIsLiveTrackingEnabled() {
         return isLiveTrackingEnabled;
     }
@@ -452,11 +441,16 @@ public class VehicleRepository implements WeatherUpdateCallback {
         }
     }
 
+    // Updated NetworkStatus to include String type
     public static class NetworkStatus {
         public final int signalStrength;
-        public final int networkType;
+        public final String networkTypeName;
         public final boolean isWifi;
-        public NetworkStatus(int s, int n, boolean w) { signalStrength = s; networkType = n; isWifi = w; }
+        public NetworkStatus(int s, String t, boolean w) {
+            signalStrength = s;
+            networkTypeName = t;
+            isWifi = w;
+        }
     }
 
     public static class VehicleTelemetry {

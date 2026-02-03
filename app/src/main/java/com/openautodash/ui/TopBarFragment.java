@@ -5,7 +5,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.location.Location;
+import android.net.ConnectivityManager;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -23,6 +27,7 @@ import androidx.fragment.app.Fragment;
 import com.openautodash.R;
 import com.openautodash.object.Weather; // Ensure this import is correct
 import com.openautodash.repositorys.VehicleRepository;
+import com.openautodash.utilities.ModemInfo;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -38,6 +43,39 @@ public class TopBarFragment extends Fragment {
     private BroadcastReceiver clockReceiver;
     private final SimpleDateFormat clockFormat = new SimpleDateFormat("h:mm a", Locale.US);
 
+    private final Handler modemHandler = new Handler();
+    private ModemInfo modemInfo;
+    private final Runnable modemRunnable = new Runnable() {
+        @Override
+        public void run() {
+            // Check if we are connected to the car's WiFi modem
+            WifiManager wm = (WifiManager) requireContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            WifiInfo info = wm.getConnectionInfo();
+
+            if (info.getSSID().contains("My Fusion")) {
+                modemInfo.updateInfo();
+            } else {
+                // Standard WiFi logic
+                boolean connected = isInternetConnected(requireContext());
+                repository.updateNetworkStatus(connected ? 1 : 0, "", true);
+            }
+            modemHandler.postDelayed(this, 5000);
+        }
+    };
+
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        modemInfo = new ModemInfo(requireContext());
+        modemHandler.post(modemRunnable);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        modemHandler.removeCallbacks(modemRunnable);
+    }
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_top_bar, container, false);
@@ -169,4 +207,12 @@ public class TopBarFragment extends Fragment {
         super.onDestroyView();
         if (clockReceiver != null) requireContext().unregisterReceiver(clockReceiver);
     }
+
+
+    public static boolean isInternetConnected(Context context) {
+        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        return cm.getActiveNetwork() != null && cm.getNetworkCapabilities(cm.getActiveNetwork()) != null;
+    }
+
+
 }
