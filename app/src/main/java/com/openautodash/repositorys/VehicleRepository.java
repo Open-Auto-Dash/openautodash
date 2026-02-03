@@ -105,7 +105,7 @@ public class VehicleRepository implements WeatherUpdateCallback {
         });
 
         // Kickstart things
-        fetchLastKnownLocation(context);
+//        fetchLastKnownLocation(context);
     }
 
     public static synchronized VehicleRepository getInstance(Context context) {

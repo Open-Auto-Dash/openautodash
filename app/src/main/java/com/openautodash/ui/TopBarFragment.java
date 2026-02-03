@@ -33,7 +33,7 @@ public class TopBarFragment extends Fragment {
 
     private VehicleRepository repository;
     private TextView clockView, tempView, lteNetworkType, brightnessDebugView;
-    private ImageView windDirectionView, bluetoothStatusIcon, lteStatusView;
+    private ImageView windDirectionView, bluetoothStatusIcon, lteStatusView, liveTrackingIcon;
 
     private BroadcastReceiver clockReceiver;
     private final SimpleDateFormat clockFormat = new SimpleDateFormat("h:mm a", Locale.US);
@@ -61,6 +61,7 @@ public class TopBarFragment extends Fragment {
         lteStatusView = view.findViewById(R.id.iv_main_lte_signal);
         lteNetworkType = view.findViewById(R.id.tv_main_signal_network_type);
         brightnessDebugView = view.findViewById(R.id.brightesscrap);
+        liveTrackingIcon = view.findViewById(R.id.iv_top_bar_live_tracking);
 
         lteStatusView.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS)));
     }
@@ -126,6 +127,10 @@ public class TopBarFragment extends Fragment {
             }
             lteStatusView.setImageDrawable(AppCompatResources.getDrawable(requireContext(), iconRes));
             lteNetworkType.setText(status.isWifi ? "" : "LTE");
+        });
+
+        repository.getIsLiveTrackingEnabled().observe(getViewLifecycleOwner(), isEnabled -> {
+            liveTrackingIcon.setVisibility(isEnabled ? View.VISIBLE : View.GONE);
         });
     }
 

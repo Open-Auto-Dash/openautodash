@@ -82,4 +82,15 @@
         app:layout_constraintTop_toTopOf="@+id/tv_main_temp"
         app:srcCompat="@drawable/wind_direction" />
 
+    <ImageView
+        android:id="@+id/iv_top_bar_live_tracking"
+        android:layout_width="38dp"
+        android:layout_height="32dp"
+        android:layout_marginEnd="24dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@+id/iv_m_wind_dir"
+        app:layout_constraintEnd_toStartOf="@+id/iv_m_wind_dir"
+        app:layout_constraintTop_toTopOf="@+id/iv_m_wind_dir"
+        app:srcCompat="@drawable/broadcast_location" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
