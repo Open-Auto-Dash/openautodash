@@ -374,10 +374,12 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
                                     currentTrackTitle,
                                     currentTrackArtist,
                                     null,
-                                    (int) currentTrackProgress
+                                    (int)currentTrackProgress
                             );
 
                             vehicleRepository.setSpotifyTrack(track);
+
+                            Log.d(TAG, "onEvent: set track: " + currentTrackProgress);
 
                         }
                     }
@@ -536,6 +538,14 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
                 if (mSeekBar.getMax() > 0) {
                     // (Current / Max) * 100
                     currentTrackProgress = (long) ((float) progress / mSeekBar.getMax() * 100);
+                    VehicleRepository.SpotifyTrack track =  new VehicleRepository.SpotifyTrack(
+                            currentTrackTitle,
+                            currentTrackArtist,
+                            null,
+                            (int)currentTrackProgress
+                    );
+
+                    vehicleRepository.setSpotifyTrack(track);
                 }
                 // -------------------------------------
 
