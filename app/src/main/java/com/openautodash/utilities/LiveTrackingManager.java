@@ -75,6 +75,27 @@ public class LiveTrackingManager {
     }
 
 
+    public void updateNavigation(String eta) {
+        try {
+            Map<String, String> arguments = new HashMap<>();
+            if (eta != null) {
+                arguments.put("nav_eta", eta);
+            } else {
+                arguments.put("nav_eta", "");
+            }
+
+            StringJoiner sj = new StringJoiner("&");
+            for (Map.Entry<String, String> entry : arguments.entrySet()) {
+                sj.add(URLEncoder.encode(entry.getKey(), "UTF-8") + "="
+                        + URLEncoder.encode(entry.getValue(), "UTF-8"));
+            }
+            uploadData(sj.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            Log.e(TAG, "Nav ETA upload failed", e);
+        }
+    }
+
+
     private void uploadData(byte[] out) {
         new Thread(() -> {
             try {

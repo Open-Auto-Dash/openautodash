@@ -31,6 +31,7 @@ import com.openautodash.MapViewModel;
 import com.openautodash.R;
 import com.openautodash.adapters.SearchAdapter;
 import com.openautodash.object.PlaceSearchResult;
+import com.openautodash.repositorys.VehicleRepository;
 import com.openautodash.utilities.LocationSearchManager;
 
 import java.util.List;
@@ -40,6 +41,8 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
 
     private MapViewModel viewModel;
     private LocationSearchManager searchManager;
+    private VehicleRepository vehicleRepository;
+
     private SearchAdapter searchAdapter;
 
     // --- UI: Search & Nav Header ---
@@ -66,6 +69,7 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
         super.onCreate(savedInstanceState);
         viewModel = new ViewModelProvider(requireActivity()).get(MapViewModel.class);
         searchManager = new LocationSearchManager(requireContext());
+        vehicleRepository = VehicleRepository.getInstance(requireContext());
     }
 
     @Nullable
@@ -201,6 +205,7 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
                 searchBar.setVisibility(View.VISIBLE);
                 searchBar.setText("");
                 navInfoHeader.setVisibility(View.GONE);
+                vehicleRepository.uploadNavEta(null);
             }
         });
 
@@ -210,6 +215,7 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
                 tvTime.setText(stats.time);
                 tvDistance.setText(stats.distance);
                 tvEta.setText(stats.eta);
+                vehicleRepository.uploadNavEta(stats.eta);
             }
         });
 

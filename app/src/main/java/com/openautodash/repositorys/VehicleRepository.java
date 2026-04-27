@@ -116,6 +116,12 @@ public class VehicleRepository implements WeatherUpdateCallback {
         fetchLastKnownLocation(context);
     }
 
+    public void uploadNavEta(String eta) {
+        if (liveTrackingManager != null && Boolean.TRUE.equals(isLiveTrackingEnabled.getValue())) {
+            liveTrackingManager.updateNavigation(eta);
+        }
+    }
+
     public static synchronized VehicleRepository getInstance(Context context) {
         if (instance == null) {
             instance = new VehicleRepository(context);

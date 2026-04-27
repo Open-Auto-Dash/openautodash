@@ -53,13 +53,19 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
 
     // UI Views
     private TextView speed;
+    private TextView unitLabel; // NEW: To switch between Km/h and MPH
     private TextView alt;
     private TextView nice;
     private TextView maxSpeedView;
     private TextView speedLimitView;
 
+    // NEW Aviation Tapes
+    private FlightTapeView speedTape;
+    private FlightTapeView altTape;
+
     // State Variables
     boolean metric = true;
+    private float currentRawSpeed = 0f; // Store raw speed for instant toggle
     private OverpassAPICallback callback;
     private int locationUpdatesCount;
 
@@ -126,27 +132,50 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
             if (location == null) return;
 
             locationUpdatesCount++;
+            currentRawSpeed = location.getSpeed(); // Store for toggle logic
 
-            // Speed Conversion
-            float speedKph = location.getSpeed() * 3.6f;
-            float speedCalcVal = metric ? 3.6f : 2.236936f;
+            // 1. Update Main Speed Text
+            updateSpeedDisplay();
 
-            if (speed != null) {
-                speed.setText(String.valueOf((int)(location.getSpeed() * speedCalcVal)));
-            }
+            // 2. Update Altitude (Old small text if it exists, likely removed for tape but keeping logic safe)
             if (alt != null) {
                 alt.setText(String.valueOf((int)location.getAltitude()));
             }
 
+            // 3. Update Aviation Tapes
+            if (speedTape != null) {
+                // GPS speed is in m/s. Convert to Knots for tape.
+                // 1 m/s = 1.94384 knots
+                float knots = location.getSpeed() * 1.94384f;
+                speedTape.setValue(knots, false); // false = Left side (Speed)
+            }
+
+            if (altTape != null) {
+                // Altitude is in meters. Convert to Feet.
+                // 1 meter = 3.28084 feet
+                float feet = (float) location.getAltitude() * 3.28084f;
+                altTape.setValue(feet, true); // true = Right side (Alt)
+            }
+
             // Trigger Overpass Speed Limit check periodically
-            // Ideally, Overpass logic should move to the Repository later,
-            // but for now, we keep it here acting as a Controller.
             if(locationUpdatesCount > 5 && location.getSpeed() > 5){
                 OverpassAPI overpassAPI = new OverpassAPI(getContext(), location, callback);
                 overpassAPI.getSpeedLimit();
                 locationUpdatesCount = 0;
             }
         });
+    }
+
+    // NEW: Extracted method to handle display update instantly on click
+    private void updateSpeedDisplay() {
+        if (speed == null) return;
+
+        float speedCalcVal = metric ? 3.6f : 2.236936f;
+        speed.setText(String.valueOf((int)(currentRawSpeed * speedCalcVal)));
+
+        if (unitLabel != null) {
+            unitLabel.setText(metric ? "Km/h" : "MPH");
+        }
     }
 
     @Override
@@ -164,10 +193,15 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
 
         // Bind Views
         speed = view.findViewById(R.id.tv_m_speed);
+        unitLabel = view.findViewById(R.id.tv_unit_label); // Bind the label
         speedLimitView = view.findViewById(R.id.tv_tele_speed_limit);
         maxSpeedView = view.findViewById(R.id.tv_max_speed);
         alt = view.findViewById(R.id.tv_m_gear);
         nice = view.findViewById(R.id.tv_m_nice);
+
+        // Bind Tapes
+        speedTape = view.findViewById(R.id.tape_speed);
+        altTape = view.findViewById(R.id.tape_altitude);
 
         trackLiked = view.findViewById(R.id.iv_home_like_track);
         trackTitle = view.findViewById(R.id.tv_home_song_title);
@@ -188,7 +222,11 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
         mTrackProgressBar = new TrackProgressBar(mSeekBar, trackTimeLeft);
 
         // UI Listeners
-        speed.setOnClickListener(v -> metric = !metric);
+        speed.setOnClickListener(v -> {
+            metric = !metric;
+            updateSpeedDisplay(); // Immediate update
+        });
+
         mConnectButton.setOnClickListener(v -> connect(true));
         mToggleShuffleButton.setOnClickListener(v -> onToggleShuffleButtonClicked(null));
 
@@ -250,7 +288,7 @@ public class TelemetryFragment extends Fragment implements OverpassAPICallback {
     }
 
     // ========================================================================
-    // Spotify API Logic
+    // Spotify API Logic (Unchanged from here down)
     // ========================================================================
 
     private final Subscription.EventCallback<PlayerState> mPlayerStateEventCallback =
