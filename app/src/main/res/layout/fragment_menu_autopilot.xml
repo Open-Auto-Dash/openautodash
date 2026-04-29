@@ -14,4 +14,14 @@
         android:clipToPadding="false"
         android:padding="8dp" />
 
+    <TextView
+        android:id="@+id/tv_key_not_present"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="Key not present"
+        android:textColor="@android:color/white"
+        android:textSize="22sp"
+        android:visibility="gone" />
+
 </FrameLayout>

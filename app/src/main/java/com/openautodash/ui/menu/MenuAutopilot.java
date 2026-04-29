@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -14,6 +15,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.openautodash.R;
+import com.openautodash.repositorys.VehicleRepository;
 import com.openautodash.utilities.GridSpacingItemDecoration;
 
 import java.util.Collections;
@@ -21,15 +23,30 @@ import java.util.List;
 
 public class MenuAutopilot extends Fragment implements com.openautodash.ui.menu.AppGridAdapter.OnAppClickListener {
     private RecyclerView appsGrid;
+    private TextView keyNotPresentView;
     private List<ResolveInfo> apps;
+    private VehicleRepository repository;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_menu_autopilot, container, false);
         appsGrid = view.findViewById(R.id.apps_grid);
+        keyNotPresentView = view.findViewById(R.id.tv_key_not_present);
+        repository = VehicleRepository.getInstance(requireContext().getApplicationContext());
+        appsGrid.setVisibility(View.GONE);
+        keyNotPresentView.setVisibility(View.VISIBLE);
         setupAppsGrid();
+        observeKeyState();
         return view;
+    }
+
+    private void observeKeyState() {
+        repository.getBluetoothState().observe(getViewLifecycleOwner(), connected -> {
+            boolean showApps = connected != null && connected;
+            appsGrid.setVisibility(showApps ? View.VISIBLE : View.GONE);
+            keyNotPresentView.setVisibility(showApps ? View.GONE : View.VISIBLE);
+        });
     }
 
     private void setupAppsGrid() {
