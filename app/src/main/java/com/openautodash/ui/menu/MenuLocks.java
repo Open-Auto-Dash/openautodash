@@ -1,14 +1,29 @@
 package com.openautodash.ui.menu;
 
+import android.app.AlertDialog;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.view.Gravity;
 
 import androidx.fragment.app.Fragment;
 
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.WriterException;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
 import com.openautodash.R;
+import com.openautodash.pairing.DashPairingManager;
+
+import java.util.List;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -22,9 +37,8 @@ public class MenuLocks extends Fragment {
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+    private DashPairingManager pairingManager;
+    private LinearLayout pairedPhonesLayout;
 
     public MenuLocks() {
         // Required empty public constructor
@@ -51,16 +65,75 @@ public class MenuLocks extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
+        pairingManager = new DashPairingManager(requireContext());
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_menu_locks, container, false);
+        View view = inflater.inflate(R.layout.fragment_menu_locks, container, false);
+        Button pairButton = view.findViewById(R.id.btn_pair_new_phone);
+        pairedPhonesLayout = view.findViewById(R.id.layout_paired_phones);
+        pairButton.setOnClickListener(v -> showPairingQr());
+        renderPairedPhones();
+        return view;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        renderPairedPhones();
+    }
+
+    private void showPairingQr() {
+        try {
+            String payload = pairingManager.createPairingQrPayload();
+            Bitmap qr = createQrBitmap(payload, 700);
+            ImageView image = new ImageView(requireContext());
+            image.setImageBitmap(qr);
+            image.setAdjustViewBounds(true);
+            image.setPadding(24, 24, 24, 24);
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Scan with Phone")
+                    .setView(image)
+                    .setPositiveButton("Done", (d, which) -> renderPairedPhones())
+                    .show();
+        } catch (Exception e) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Pairing Error")
+                    .setMessage("Could not create pairing QR.")
+                    .setPositiveButton("OK", null)
+                    .show();
+        }
+    }
+
+    private void renderPairedPhones() {
+        if (pairedPhonesLayout == null) return;
+        pairedPhonesLayout.removeAllViews();
+        List<String> phones = pairingManager.listPairedPhones();
+        if (phones.isEmpty()) {
+            TextView empty = new TextView(requireContext());
+            empty.setText("No paired phones yet");
+            pairedPhonesLayout.addView(empty);
+            return;
+        }
+        for (String phone : phones) {
+            TextView row = new TextView(requireContext());
+            row.setText(phone);
+            row.setPadding(0, 8, 0, 8);
+            row.setGravity(Gravity.START);
+            pairedPhonesLayout.addView(row);
+        }
+    }
+
+    private Bitmap createQrBitmap(String text, int size) throws WriterException {
+        BitMatrix matrix = new QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size);
+        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565);
+        for (int x = 0; x < size; x++) {
+            for (int y = 0; y < size; y++) {
+                bitmap.setPixel(x, y, matrix.get(x, y) ? Color.BLACK : Color.WHITE);
+            }
+        }
+        return bitmap;
     }
 }

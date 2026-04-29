@@ -27,6 +27,7 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.StrictMode;
 import android.provider.Settings;
+import android.util.Base64;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -36,15 +37,16 @@ import androidx.core.app.NotificationCompat;
 
 import com.openautodash.MainActivity;
 import com.openautodash.R;
-import com.openautodash.bluetooth.BLEAdvertiser;
+import com.openautodash.bluetooth.BLECentralScanner;
 import com.openautodash.enums.VehicleState;
 import com.openautodash.interfaces.BluetoothKeyCallback;
+import com.openautodash.pairing.DashPairingManager;
 import com.openautodash.repositorys.VehicleRepository;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class MainForegroundService extends Service implements SensorEventListener, BluetoothKeyCallback, BLEAdvertiser.MessageHandler {
+public class MainForegroundService extends Service implements SensorEventListener, BluetoothKeyCallback, BLECentralScanner.MessageHandler {
     private static final String TAG = "MainForegroundService";
     private static final String CHANNEL_ID = "OpenAutoDashChannel";
     private static final int NOTIFICATION_ID = 1;
@@ -56,9 +58,10 @@ public class MainForegroundService extends Service implements SensorEventListene
     // Hardware Managers
     private PowerManager.WakeLock wakeLock;
     private PowerManager.WakeLock screenWakeLock;
-    private BLEAdvertiser bleAdvertiser;
+    private BLECentralScanner bleScanner;
     private SensorManager sensorManager;
     private LocationManager locationManager;
+    private DashPairingManager pairingManager;
 
     // Location
     private LocationListener locationListener;
@@ -75,6 +78,7 @@ public class MainForegroundService extends Service implements SensorEventListene
 
         // Initialize Repository
         repository = VehicleRepository.getInstance(getApplicationContext());
+        pairingManager = new DashPairingManager(getApplicationContext());
 
         // Allow strict mode for disk reads if necessary during init
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
@@ -87,9 +91,9 @@ public class MainForegroundService extends Service implements SensorEventListene
         setupPeriodicAlarm();
         setupSpotifyListener();
 
-        // Start BLE Advertising
-        bleAdvertiser = new BLEAdvertiser(this, this, this);
-        bleAdvertiser.startAdvertising();
+        // Start BLE scanning/connection (tablet is central)
+        bleScanner = new BLECentralScanner(this, this);
+        bleScanner.start();
     }
 
     private void initializeHardware() {
@@ -211,6 +215,13 @@ public class MainForegroundService extends Service implements SensorEventListene
     // ============================================================================================
 
     @Override
+    public void onConnectionStateChanged(boolean connected) {
+        Log.d(TAG, connected ? "Bluetooth key connected" : "Bluetooth key disconnected");
+        repository.updateBluetoothState(connected);
+        keepScreenOn(connected);
+    }
+
+    @Override
     public void onRssiUpdate(BluetoothDevice device, int rssi) {
         Log.d(TAG, "RSSI update from " + device.getAddress() + ": " + rssi);
     }
@@ -246,6 +257,17 @@ public class MainForegroundService extends Service implements SensorEventListene
             case "START":
                 // Handle remote start
                 break;
+            case "PAIR_HELLO":
+                if (params.length > 0 && pairingManager != null) {
+                    try {
+                        String phoneHello = new String(Base64.decode(params[0], Base64.NO_WRAP));
+                        boolean ok = pairingManager.finalizePairingFromPhoneHello(phoneHello);
+                        Log.d(TAG, ok ? "App pairing completed" : "App pairing rejected");
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to parse PAIR_HELLO", e);
+                    }
+                }
+                break;
         }
     }
 
@@ -273,8 +295,8 @@ public class MainForegroundService extends Service implements SensorEventListene
             data.put("bearing", String.valueOf(loc.getBearing()));
         }
 
-        if (bleAdvertiser != null) {
-            bleAdvertiser.sendTelemetryData(data);
+        if (bleScanner != null) {
+            bleScanner.sendTelemetryData(data);
         }
     }
 
@@ -429,7 +451,7 @@ public class MainForegroundService extends Service implements SensorEventListene
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         if (screenWakeLock != null && screenWakeLock.isHeld()) screenWakeLock.release();
 
-        if (bleAdvertiser != null) bleAdvertiser.stopAdvertising();
+        if (bleScanner != null) bleScanner.stop();
 
         if (locationManager != null) {
             locationManager.removeUpdates(locationListener);
