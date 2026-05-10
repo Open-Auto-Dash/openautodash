@@ -37,7 +37,7 @@ public class VehicleRepository implements WeatherUpdateCallback {
 
     private final MutableLiveData<String> sensorLux = new MutableLiveData<>("0");
     private final MutableLiveData<Boolean> isNightMode = new MutableLiveData<>();
-    private final MutableLiveData<Boolean> isBluetoothConnected = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> isBluetoothConnected = new MutableLiveData<>(false);
     private final MutableLiveData<NetworkStatus> networkStatus = new MutableLiveData<>();
     private final MutableLiveData<VehicleTelemetry> liveTelemetry = new MutableLiveData<>();
     private final MutableLiveData<NavigationRequest> navigationRequest = new MutableLiveData<>();

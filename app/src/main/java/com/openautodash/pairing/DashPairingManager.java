@@ -71,11 +71,23 @@ public class DashPairingManager {
 
     public synchronized List<String> listPairedPhones() {
         List<String> list = new ArrayList<>();
+        for (PairedPhone phone : listPairedPhoneRecords()) {
+            list.add(phone.displayName + " (" + phone.phoneId + ")");
+        }
+        return list;
+    }
+
+    public synchronized List<PairedPhone> listPairedPhoneRecords() {
+        List<PairedPhone> list = new ArrayList<>();
         try {
             JSONArray phones = new JSONArray(prefs.getString(KEY_PHONES, "[]"));
             for (int i = 0; i < phones.length(); i++) {
                 JSONObject item = phones.getJSONObject(i);
-                list.add(item.optString("displayName", "Phone") + " (" + item.optString("phoneId", "unknown") + ")");
+                list.add(new PairedPhone(
+                        item.optString("phoneId", "unknown"),
+                        item.optString("displayName", "Phone"),
+                        item.optLong("pairedAt", 0)
+                ));
             }
         } catch (Exception ignored) {}
         return list;
@@ -91,6 +103,24 @@ public class DashPairingManager {
             }
             prefs.edit().putString(KEY_PHONES, out.toString()).apply();
         } catch (Exception ignored) {}
+    }
+
+    public synchronized boolean verifyAuthResponse(String phoneId, String challenge, String mac) {
+        if (phoneId == null || phoneId.isEmpty() || challenge == null || challenge.isEmpty() || mac == null || mac.isEmpty()) {
+            return false;
+        }
+        try {
+            JSONArray phones = new JSONArray(prefs.getString(KEY_PHONES, "[]"));
+            for (int i = 0; i < phones.length(); i++) {
+                JSONObject item = phones.getJSONObject(i);
+                if (!phoneId.equals(item.optString("phoneId"))) continue;
+                String rootSecret = item.optString("rootSecret");
+                if (rootSecret.isEmpty()) return false;
+                String expected = CryptoUtils.hmacSha256B64(rootSecret, "AUTH:" + challenge);
+                return CryptoUtils.constantTimeEquals(expected, mac);
+            }
+        } catch (Exception ignored) {}
+        return false;
     }
 
     private void upsertPairedPhone(String phoneId, String displayName, String rootSecret) throws Exception {
@@ -163,6 +193,18 @@ public class DashPairingManager {
 
     private void clearActivePairing() {
         prefs.edit().remove(KEY_ACTIVE_PAIRING).apply();
+    }
+
+    public static class PairedPhone {
+        public final String phoneId;
+        public final String displayName;
+        public final long pairedAt;
+
+        public PairedPhone(String phoneId, String displayName, long pairedAt) {
+            this.phoneId = phoneId;
+            this.displayName = displayName;
+            this.pairedAt = pairedAt;
+        }
     }
 
     private static class ActivePairing {

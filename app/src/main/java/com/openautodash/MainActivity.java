@@ -9,13 +9,14 @@ import android.content.res.Configuration;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
-import android.view.WindowManager;
+import android.view.Window;
 import android.widget.ImageView;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -43,6 +44,10 @@ public class MainActivity extends AppCompatActivity {
 
     private VehicleRepository repository;
     private int currentMenuShowing = 0;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private Dialog keyConnectionLostDialog;
+    private Boolean wasBluetoothConnected;
+    private final Runnable dismissKeyConnectionLostDialog = this::dismissKeyConnectionLostDialog;
 
     // --- Bottom Bar UI Components (Static) ---
     private ImageView menuMain, menuMusic, menuVolUp, menuVolDown;
@@ -190,6 +195,16 @@ public class MainActivity extends AppCompatActivity {
                 AppCompatDelegate.setDefaultNightMode(targetMode);
             }
         });
+
+        repository.getBluetoothState().observe(this, connected -> {
+            boolean isConnected = Boolean.TRUE.equals(connected);
+            if (isConnected) {
+                dismissKeyConnectionLostDialog();
+            } else if (Boolean.TRUE.equals(wasBluetoothConnected)) {
+                showKeyConnectionLostDialog();
+            }
+            wasBluetoothConnected = isConnected;
+        });
     }
 
     // --- ACTIONS ---
@@ -237,6 +252,51 @@ public class MainActivity extends AppCompatActivity {
         }
         dialog.findViewById(R.id.b_dialog_engine_close).setOnClickListener(v -> dialog.cancel());
         dialog.show();
+    }
+
+    private void showKeyConnectionLostDialog() {
+        if (isFinishing() || isDestroyed()) return;
+        if (keyConnectionLostDialog != null && keyConnectionLostDialog.isShowing()) return;
+
+        Dialog dialog = new Dialog(this);
+        dialog.setContentView(R.layout.dialog_key_connection_lost);
+        dialog.setCanceledOnTouchOutside(false);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.background_dialog, null));
+        }
+        dialog.setOnDismissListener(d -> {
+            mainHandler.removeCallbacks(dismissKeyConnectionLostDialog);
+            if (keyConnectionLostDialog == dialog) {
+                keyConnectionLostDialog = null;
+            }
+        });
+
+        keyConnectionLostDialog = dialog;
+        dialog.show();
+
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setLayout(dpToPx(400), dpToPx(250));
+        }
+        mainHandler.postDelayed(dismissKeyConnectionLostDialog, 15_000);
+    }
+
+    private void dismissKeyConnectionLostDialog() {
+        mainHandler.removeCallbacks(dismissKeyConnectionLostDialog);
+        if (keyConnectionLostDialog != null) {
+            keyConnectionLostDialog.dismiss();
+            keyConnectionLostDialog = null;
+        }
+    }
+
+    private int dpToPx(int dp) {
+        return Math.round(dp * getResources().getDisplayMetrics().density);
+    }
+
+    @Override
+    protected void onDestroy() {
+        dismissKeyConnectionLostDialog();
+        super.onDestroy();
     }
 
     // --- SYSTEM ---

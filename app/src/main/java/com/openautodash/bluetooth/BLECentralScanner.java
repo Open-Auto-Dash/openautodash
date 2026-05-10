@@ -21,10 +21,11 @@ import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelUuid;
-import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.core.app.ActivityCompat;
+
+import com.openautodash.pairing.CryptoUtils;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,11 +41,13 @@ public class BLECentralScanner {
     private static final int RSSI_CONNECT_THRESHOLD = -95;
     private static final int RSSI_DISCONNECT_THRESHOLD = -80;
     private static final int RSSI_DISCONNECT_CONSECUTIVE_READS = 4;
+    private static final long RSSI_POLL_INTERVAL_MS = 5000;
     private static final long SCAN_WATCHDOG_MS = 15000;
-    private static final long DEBUG_EPOCH_MS = SystemClock.elapsedRealtime();
+    private static final int REQUESTED_MTU = 247;
 
     public interface MessageHandler {
         void onConnectionStateChanged(boolean connected);
+        boolean onAuthResponse(String phoneId, String challenge, String mac);
         void onRssiUpdate(BluetoothDevice device, int rssi);
         void onLocationPin(double latitude, double longitude, String label, String placeId);
         void onVehicleCommand(String command, String[] params);
@@ -60,13 +63,17 @@ public class BLECentralScanner {
     private BluetoothGattCharacteristic characteristic;
     private boolean scanning;
     private boolean connected;
+    private boolean notificationsEnabled;
+    private boolean authorized;
     private int lowRssiReadCount;
     private BluetoothDevice currentDevice;
+    private String lastPinId;
+    private String authChallenge;
     private final Runnable retryStart = this::start;
     private final Map<String, ChunkBuffer> chunkBuffers = new HashMap<>();
     private final Runnable scanWatchdog = () -> {
         if (!scanning || connected) return;
-        Log.w(TAG, dbg("Scan watchdog fired: no result yet, restarting scan"));
+        Log.w(TAG, "Scan watchdog fired: no result yet, restarting scan");
         restartScan();
     };
 
@@ -79,7 +86,6 @@ public class BLECentralScanner {
 
     @SuppressLint("MissingPermission")
     public void start() {
-        Log.d(TAG, dbg("start() called connected=" + connected + " scanning=" + scanning));
         if (connected || scanning) return;
         if (adapter == null) {
             Log.e(TAG, "Bluetooth adapter is null");
@@ -106,7 +112,7 @@ public class BLECentralScanner {
         ScanFilter filter = new ScanFilter.Builder().setServiceUuid(new ParcelUuid(SERVICE_UUID)).build();
         ScanSettings settings = new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();
         scanning = true;
-        Log.d(TAG, dbg("Starting BLE scan for service " + SERVICE_UUID));
+        Log.d(TAG, "Starting BLE scan for service " + SERVICE_UUID);
         scanner.startScan(Collections.singletonList(filter), settings, scanCallback);
         handler.removeCallbacks(scanWatchdog);
         handler.postDelayed(scanWatchdog, SCAN_WATCHDOG_MS);
@@ -114,21 +120,28 @@ public class BLECentralScanner {
 
     @SuppressLint("MissingPermission")
     public void stop() {
+        boolean wasConnected = connected;
         handler.removeCallbacks(retryStart);
         handler.removeCallbacks(scanWatchdog);
         if (scanner != null && scanning && hasScanPermission()) scanner.stopScan(scanCallback);
         scanning = false;
         handler.removeCallbacks(rssiLoop);
         if (gatt != null) {
-            if (hasConnectPermission()) gatt.disconnect();
+            if (hasConnectPermission()) {
+                gatt.disconnect();
+            }
             gatt.close();
             gatt = null;
         }
         characteristic = null;
         connected = false;
+        notificationsEnabled = false;
+        authorized = false;
         lowRssiReadCount = 0;
         currentDevice = null;
+        authChallenge = null;
         chunkBuffers.clear();
+        if (wasConnected) messageHandler.onConnectionStateChanged(false);
     }
 
     @SuppressLint("MissingPermission")
@@ -145,16 +158,29 @@ public class BLECentralScanner {
         gatt.writeCharacteristic(characteristic);
     }
 
+    @SuppressLint("MissingPermission")
+    private void sendMessage(String message) {
+        if (!connected || characteristic == null || gatt == null || !hasConnectPermission()) return;
+        characteristic.setValue(message.getBytes());
+        boolean started = gatt.writeCharacteristic(characteristic);
+        Log.d(TAG, "write message type=" + message.split(":", 2)[0] + " started=" + started);
+    }
+
+    public void requestAuthorization() {
+        authorized = false;
+        authChallenge = CryptoUtils.randomId();
+        sendMessage("AUTH_CHALLENGE:" + authChallenge);
+    }
+
     private final ScanCallback scanCallback = new ScanCallback() {
         @SuppressLint("MissingPermission")
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             int rssi = result.getRssi();
-            Log.d(TAG, dbg("Found advertiser " + result.getDevice().getAddress() + " RSSI=" + rssi));
             if (rssi >= RSSI_CONNECT_THRESHOLD && !connected) {
                 BluetoothDevice device = result.getDevice();
                 currentDevice = device;
-                Log.d(TAG, dbg("Connecting to advertiser " + device.getAddress()));
+                Log.d(TAG, "Connecting to advertiser " + device.getAddress() + " RSSI=" + rssi);
                 if (scanning && scanner != null && hasScanPermission()) scanner.stopScan(this);
                 scanning = false;
                 handler.removeCallbacks(scanWatchdog);
@@ -165,7 +191,7 @@ public class BLECentralScanner {
         @Override
         public void onScanFailed(int errorCode) {
             scanning = false;
-            Log.e(TAG, dbg("Scan failed errorCode=" + errorCode));
+            Log.e(TAG, "Scan failed errorCode=" + errorCode);
             handler.removeCallbacks(scanWatchdog);
             handler.postDelayed(retryStart, 3000);
         }
@@ -175,12 +201,9 @@ public class BLECentralScanner {
         @SuppressLint("MissingPermission")
         @Override
         public void run() {
-            if (gatt == null || !connected) return;
-            if (hasConnectPermission()) {
-                Log.d(TAG, dbg("rssiLoop tick -> readRemoteRssi"));
-                gatt.readRemoteRssi();
-            }
-            handler.postDelayed(this, 2000);
+            if (!connected || gatt == null || !hasConnectPermission()) return;
+            gatt.readRemoteRssi();
+            handler.postDelayed(this, RSSI_POLL_INTERVAL_MS);
         }
     };
 
@@ -189,8 +212,10 @@ public class BLECentralScanner {
         @Override
         public void onConnectionStateChange(BluetoothGatt g, int status, int newState) {
             if (status != BluetoothGatt.GATT_SUCCESS || newState == BluetoothProfile.STATE_DISCONNECTED) {
-                Log.d(TAG, dbg("GATT disconnected status=" + status + " state=" + newState));
+                Log.d(TAG, "GATT disconnected status=" + status + " state=" + newState);
                 connected = false;
+                notificationsEnabled = false;
+                authorized = false;
                 lowRssiReadCount = 0;
                 messageHandler.onConnectionStateChanged(false);
                 handler.removeCallbacks(rssiLoop);
@@ -200,17 +225,16 @@ public class BLECentralScanner {
                 }
                 characteristic = null;
                 currentDevice = null;
+                authChallenge = null;
                 chunkBuffers.clear();
                 handler.postDelayed(BLECentralScanner.this::start, 3000);
                 return;
             }
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                Log.d(TAG, dbg("GATT connected, discovering services"));
+                Log.d(TAG, "GATT connected, discovering services");
                 connected = true;
                 lowRssiReadCount = 0;
-                messageHandler.onConnectionStateChanged(true);
                 g.discoverServices();
-                handler.post(rssiLoop);
             }
         }
 
@@ -221,22 +245,73 @@ public class BLECentralScanner {
                 Log.e(TAG, "Service discovery failed status=" + status);
                 return;
             }
-            Log.d(TAG, dbg("Services discovered"));
+            Log.d(TAG, "Services discovered");
             BluetoothGattService service = g.getService(SERVICE_UUID);
-            if (service == null) return;
+            if (service == null) {
+                Log.e(TAG, "Expected service missing: " + SERVICE_UUID);
+                return;
+            }
             characteristic = service.getCharacteristic(CHARACTERISTIC_UUID);
-            if (characteristic == null) return;
+            if (characteristic == null) {
+                Log.e(TAG, "Expected characteristic missing: " + CHARACTERISTIC_UUID);
+                return;
+            }
+            if (hasConnectPermission() && g.requestMtu(REQUESTED_MTU)) {
+                Log.d(TAG, "MTU request started: " + REQUESTED_MTU);
+                handler.postDelayed(() -> enableNotifications(g), 1500);
+                return;
+            }
+            enableNotifications(g);
+        }
+
+        @Override
+        public void onMtuChanged(BluetoothGatt g, int mtu, int status) {
+            Log.d(TAG, "MTU changed mtu=" + mtu + " status=" + status);
+            enableNotifications(g);
+        }
+
+        @SuppressLint("MissingPermission")
+        private void enableNotifications(BluetoothGatt g) {
+            if (notificationsEnabled || characteristic == null) return;
             g.setCharacteristicNotification(characteristic, true);
             BluetoothGattDescriptor descriptor = characteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG);
             if (descriptor != null) {
+                notificationsEnabled = true;
                 descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                g.writeDescriptor(descriptor);
+                boolean writeStarted = g.writeDescriptor(descriptor);
+                Log.d(TAG, "CCCD write requested started=" + writeStarted);
+                if (!writeStarted) notificationsEnabled = false;
+            } else {
+                Log.e(TAG, "CCCD descriptor missing: " + CLIENT_CHARACTERISTIC_CONFIG);
+            }
+        }
+
+        @Override
+        public void onDescriptorWrite(BluetoothGatt g, BluetoothGattDescriptor descriptor, int status) {
+            Log.d(TAG, "Descriptor write callback uuid=" + descriptor.getUuid() + " status=" + status);
+            if (CLIENT_CHARACTERISTIC_CONFIG.equals(descriptor.getUuid()) && status == BluetoothGatt.GATT_SUCCESS) {
+                requestAuthorization();
+                handler.postDelayed(rssiLoop, RSSI_POLL_INTERVAL_MS);
             }
         }
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c) {
-            handleMessage(new String(c.getValue()));
+            String message = new String(c.getValue());
+            Log.d(TAG, "notification received type=" + message.split(":", 2)[0] + " length=" + message.length());
+            handleMessage(message);
+        }
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c, byte[] value) {
+            String message = new String(value);
+            Log.d(TAG, "notification received type=" + message.split(":", 2)[0] + " length=" + message.length());
+            handleMessage(message);
+        }
+
+        @Override
+        public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic c, int status) {
+            Log.d(TAG, "write callback uuid=" + c.getUuid() + " status=" + status);
         }
 
         @Override
@@ -249,17 +324,13 @@ public class BLECentralScanner {
                     lowRssiReadCount = 0;
                 }
                 if (lowRssiReadCount >= RSSI_DISCONNECT_CONSECUTIVE_READS) {
-                    Log.w(TAG, dbg("Disconnecting after sustained low RSSI: " + rssi + " count=" + lowRssiReadCount));
+                    Log.w(TAG, "Disconnecting after sustained low RSSI: " + rssi + " count=" + lowRssiReadCount);
                     stop();
                     handler.postDelayed(BLECentralScanner.this::start, 3000);
                 }
             }
         }
     };
-
-    private String dbg(String msg) {
-        return "[diag t+" + (SystemClock.elapsedRealtime() - DEBUG_EPOCH_MS) + "ms] " + msg;
-    }
 
     private void handleMessage(String message) {
         String[] parts = message.split(":", 2);
@@ -271,6 +342,10 @@ public class BLECentralScanner {
                 handleChunk(data);
                 break;
             case "PIN":
+                if (!authorized) {
+                    Log.w(TAG, "Ignoring PIN from unauthorized BLE device");
+                    return;
+                }
                 String[] pin = data.split(",");
                 if (pin.length >= 3) {
                     try {
@@ -278,18 +353,46 @@ public class BLECentralScanner {
                         double lng = Double.parseDouble(pin[1]);
                         String label = pin[2];
                         String placeId = pin.length > 3 ? pin[3] : null;
-                        messageHandler.onLocationPin(lat, lng, label, placeId);
-                    } catch (Exception ignored) {}
+                        String pinId = pin.length > 4 ? pin[4] : "";
+                        if (pinId.isEmpty() || !pinId.equals(lastPinId)) {
+                            lastPinId = pinId;
+                            messageHandler.onLocationPin(lat, lng, label, placeId);
+                        }
+                        handler.post(() -> sendMessage("ACK:PIN," + pinId));
+                    } catch (Exception e) {
+                        Log.e(TAG, "Invalid PIN payload: " + data, e);
+                    }
+                } else {
+                    Log.e(TAG, "Malformed PIN payload: " + data);
                 }
                 break;
             case "CMD":
                 String[] cmd = data.split(",", 2);
                 if (cmd.length > 0) {
+                    if (!authorized && !"PAIR_HELLO".equalsIgnoreCase(cmd[0])) {
+                        Log.w(TAG, "Ignoring command from unauthorized BLE device: " + cmd[0]);
+                        return;
+                    }
                     String[] params = cmd.length > 1 ? new String[]{cmd[1]} : new String[0];
                     messageHandler.onVehicleCommand(cmd[0], params);
                 }
                 break;
+            case "AUTH_RESPONSE":
+                String[] auth = data.split(",", 2);
+                if (auth.length == 2 && authChallenge != null) {
+                    authorized = messageHandler.onAuthResponse(auth[0], authChallenge, auth[1]);
+                    sendMessage(authorized ? "AUTH_RESULT:OK" : "AUTH_RESULT:FAIL");
+                }
+                break;
+            case "AUTH_CHECK_REQUEST":
+                requestAuthorization();
+                break;
+            case "AUTH_LOGOUT":
+                authorized = false;
+                messageHandler.onConnectionStateChanged(false);
+                break;
             case "TELEMETRY":
+                if (!authorized) return;
                 if (currentDevice != null) messageHandler.onTelemetryRequest(currentDevice);
                 break;
         }
@@ -319,6 +422,7 @@ public class BLECentralScanner {
             return;
         }
         if (index <= 0 || total <= 0 || index > total) return;
+        Log.d(TAG, "Chunk received id=" + chunkId + " index=" + index + "/" + total + " length=" + parts[3].length());
 
         ChunkBuffer buffer = chunkBuffers.get(chunkId);
         if (buffer == null || buffer.totalParts != total) {
@@ -334,6 +438,7 @@ public class BLECentralScanner {
             full.append(part);
         }
         chunkBuffers.remove(chunkId);
+        Log.d(TAG, "Chunk complete id=" + chunkId + " messageType=" + full.toString().split(":", 2)[0] + " length=" + full.length());
         handleMessage(full.toString());
     }
 

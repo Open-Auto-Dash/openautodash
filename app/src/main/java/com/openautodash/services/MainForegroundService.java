@@ -222,12 +222,25 @@ public class MainForegroundService extends Service implements SensorEventListene
     }
 
     @Override
+    public boolean onAuthResponse(String phoneId, String challenge, String mac) {
+        boolean authorized = pairingManager != null && pairingManager.verifyAuthResponse(phoneId, challenge, mac);
+        Log.d(TAG, authorized ? "Bluetooth key authorized: " + phoneId : "Bluetooth key authorization failed: " + phoneId);
+        repository.updateBluetoothState(authorized);
+        keepScreenOn(authorized);
+        return authorized;
+    }
+
+    @Override
     public void onRssiUpdate(BluetoothDevice device, int rssi) {
-        Log.d(TAG, "RSSI update from " + device.getAddress() + ": " + rssi);
+        // RSSI is only used internally by BLECentralScanner for proximity disconnects.
     }
 
     @Override
     public void onLocationPin(double latitude, double longitude, String label, String placeId) {
+        if (!Boolean.TRUE.equals(repository.getBluetoothState().getValue())) {
+            Log.w(TAG, "Ignoring PIN because Bluetooth key is not authorized");
+            return;
+        }
         Log.d(TAG, "Received PIN via BLE. ID: " + placeId + " Label: " + label);
 
         // Push to Repository (The Bridge)
@@ -241,6 +254,10 @@ public class MainForegroundService extends Service implements SensorEventListene
 
     @Override
     public void onVehicleCommand(String command, String[] params) {
+        if (!"PAIR_HELLO".equalsIgnoreCase(command) && !Boolean.TRUE.equals(repository.getBluetoothState().getValue())) {
+            Log.w(TAG, "Ignoring vehicle command because Bluetooth key is not authorized: " + command);
+            return;
+        }
         // This receives commands from the BLE device (Unlock, Start, etc.)
         // Since we removed the Callback to Activity, we should broadcast this
         // or update a specific LiveData in the Repository if the UI needs to react.
@@ -263,6 +280,9 @@ public class MainForegroundService extends Service implements SensorEventListene
                         String phoneHello = new String(Base64.decode(params[0], Base64.NO_WRAP));
                         boolean ok = pairingManager.finalizePairingFromPhoneHello(phoneHello);
                         Log.d(TAG, ok ? "App pairing completed" : "App pairing rejected");
+                        if (ok && bleScanner != null) {
+                            bleScanner.requestAuthorization();
+                        }
                     } catch (Exception e) {
                         Log.e(TAG, "Failed to parse PAIR_HELLO", e);
                     }

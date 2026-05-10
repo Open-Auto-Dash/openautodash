@@ -26,6 +26,7 @@ public class MenuAutopilot extends Fragment implements com.openautodash.ui.menu.
     private TextView keyNotPresentView;
     private List<ResolveInfo> apps;
     private VehicleRepository repository;
+    private boolean keyConnected;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -44,6 +45,7 @@ public class MenuAutopilot extends Fragment implements com.openautodash.ui.menu.
     private void observeKeyState() {
         repository.getBluetoothState().observe(getViewLifecycleOwner(), connected -> {
             boolean showApps = connected != null && connected;
+            keyConnected = showApps;
             appsGrid.setVisibility(showApps ? View.VISIBLE : View.GONE);
             keyNotPresentView.setVisibility(showApps ? View.GONE : View.VISIBLE);
         });
@@ -78,6 +80,7 @@ public class MenuAutopilot extends Fragment implements com.openautodash.ui.menu.
 
     @Override
     public void onAppClick(ResolveInfo app) {
+        if (!keyConnected) return;
         PackageManager packageManager = requireContext().getPackageManager();
         String packageName = app.activityInfo.packageName;
         String className = app.activityInfo.name;

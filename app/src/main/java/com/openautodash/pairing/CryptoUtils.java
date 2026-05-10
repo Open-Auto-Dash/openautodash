@@ -81,6 +81,17 @@ public final class CryptoUtils {
         return MessageDigest.getInstance("SHA-256").digest(input);
     }
 
+    public static String hmacSha256B64(String secretB64, String message) throws Exception {
+        Mac hmac = Mac.getInstance("HmacSHA256");
+        hmac.init(new SecretKeySpec(b64d(secretB64), "HmacSHA256"));
+        return b64(hmac.doFinal(message.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    public static boolean constantTimeEquals(String a, String b) {
+        if (a == null || b == null) return false;
+        return MessageDigest.isEqual(a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
+    }
+
     public static String randomId() {
         return UUID.randomUUID().toString().replace("-", "");
     }

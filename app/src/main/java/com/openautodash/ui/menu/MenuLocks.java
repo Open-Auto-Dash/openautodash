@@ -22,7 +22,10 @@ import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.openautodash.R;
 import com.openautodash.pairing.DashPairingManager;
+import com.openautodash.repositorys.VehicleRepository;
 
+import java.text.DateFormat;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -110,18 +113,38 @@ public class MenuLocks extends Fragment {
     private void renderPairedPhones() {
         if (pairedPhonesLayout == null) return;
         pairedPhonesLayout.removeAllViews();
-        List<String> phones = pairingManager.listPairedPhones();
+        List<DashPairingManager.PairedPhone> phones = pairingManager.listPairedPhoneRecords();
         if (phones.isEmpty()) {
             TextView empty = new TextView(requireContext());
             empty.setText("No paired phones yet");
             pairedPhonesLayout.addView(empty);
             return;
         }
-        for (String phone : phones) {
-            TextView row = new TextView(requireContext());
-            row.setText(phone);
+        for (DashPairingManager.PairedPhone phone : phones) {
+            LinearLayout row = new LinearLayout(requireContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
             row.setPadding(0, 8, 0, 8);
             row.setGravity(Gravity.START);
+
+            TextView phoneText = new TextView(requireContext());
+            String pairedAt = phone.pairedAt > 0
+                    ? DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(new Date(phone.pairedAt))
+                    : "Unknown date";
+            phoneText.setText(phone.displayName + "\n" + phone.phoneId + "\nPaired " + pairedAt);
+
+            Button deleteButton = new Button(requireContext());
+            deleteButton.setText("Delete");
+            deleteButton.setOnClickListener(v -> {
+                pairingManager.clearPhone(phone.phoneId);
+                VehicleRepository.getInstance(requireContext().getApplicationContext()).updateBluetoothState(false);
+                renderPairedPhones();
+            });
+
+            row.addView(phoneText, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+            row.addView(deleteButton, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            ));
             pairedPhonesLayout.addView(row);
         }
     }
