@@ -11,6 +11,8 @@ import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.HorizontalScrollView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.ToggleButton;
 
@@ -30,9 +32,11 @@ import com.google.android.libraries.places.api.model.Place;
 import com.openautodash.MapViewModel;
 import com.openautodash.R;
 import com.openautodash.adapters.SearchAdapter;
+import com.openautodash.object.NavigationShortcut;
 import com.openautodash.object.PlaceSearchResult;
 import com.openautodash.repositorys.VehicleRepository;
 import com.openautodash.utilities.LocationSearchManager;
+import com.openautodash.utilities.LocalSettings;
 
 import java.util.List;
 
@@ -42,12 +46,15 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
     private MapViewModel viewModel;
     private LocationSearchManager searchManager;
     private VehicleRepository vehicleRepository;
+    private LocalSettings localSettings;
 
     private SearchAdapter searchAdapter;
 
     // --- UI: Search & Nav Header ---
     private EditText searchBar;
     private RecyclerView searchResultsRv;
+    private HorizontalScrollView shortcutScroll;
+    private LinearLayout shortcutContainer;
     private ConstraintLayout navInfoHeader;
     private TextView tvEta, tvDistance, tvTime, btnExitNav;
 
@@ -70,6 +77,7 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
         viewModel = new ViewModelProvider(requireActivity()).get(MapViewModel.class);
         searchManager = new LocationSearchManager(requireContext());
         vehicleRepository = VehicleRepository.getInstance(requireContext());
+        localSettings = new LocalSettings(requireContext());
     }
 
     @Nullable
@@ -90,6 +98,8 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
         // Search & Header
         searchBar = view.findViewById(R.id.et_search_bar);
         searchResultsRv = view.findViewById(R.id.rv_search_results);
+        shortcutScroll = view.findViewById(R.id.hsv_nav_shortcuts);
+        shortcutContainer = view.findViewById(R.id.container_nav_shortcuts);
         navInfoHeader = view.findViewById(R.id.cl_nav_info_header);
         tvEta = view.findViewById(R.id.tv_nav_eta);
         tvDistance = view.findViewById(R.id.tv_nav_distance);
@@ -116,6 +126,13 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
         tvTripDist = view.findViewById(R.id.tv_trip_dist);
         btnTripBusiness = view.findViewById(R.id.btn_trip_business);
         btnTripStop = view.findViewById(R.id.btn_trip_stop);
+        renderShortcuts();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (shortcutContainer != null) renderShortcuts();
     }
 
     private void setupListeners() {
@@ -200,10 +217,12 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
             if (isNavigating) {
                 searchBar.setVisibility(View.GONE);
                 searchResultsRv.setVisibility(View.GONE);
+                shortcutScroll.setVisibility(View.GONE);
                 navInfoHeader.setVisibility(View.VISIBLE);
             } else {
                 searchBar.setVisibility(View.VISIBLE);
                 searchBar.setText("");
+                renderShortcuts();
                 navInfoHeader.setVisibility(View.GONE);
                 vehicleRepository.uploadNavEta(null);
             }
@@ -287,6 +306,45 @@ public class MapsOverlayFragment extends Fragment implements LocationSearchManag
         } catch (Waypoint.UnsupportedPlaceIdException e) {
             Log.e(TAG, "Invalid Place ID", e);
         }
+    }
+
+    private void renderShortcuts() {
+        List<NavigationShortcut> shortcuts = localSettings.getNavigationShortcuts();
+        shortcutContainer.removeAllViews();
+        if (shortcuts.isEmpty() || Boolean.TRUE.equals(viewModel.getIsNavigating().getValue())) {
+            shortcutScroll.setVisibility(View.GONE);
+            return;
+        }
+
+        int size = dp(48);
+        int margin = dp(6);
+        for (NavigationShortcut shortcut : shortcuts) {
+            ImageView button = new ImageView(requireContext());
+            button.setImageResource(NavigationShortcut.iconForKey(shortcut.iconKey));
+            button.setBackground(ResourcesCompat.getDrawable(getResources(), R.drawable.bg_search_bar, null));
+            button.setPadding(dp(12), dp(12), dp(12), dp(12));
+            button.setContentDescription(shortcut.name);
+            button.setOnClickListener(v -> startNavigationShortcut(shortcut));
+
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(size, size);
+            params.setMarginEnd(margin);
+            shortcutContainer.addView(button, params);
+        }
+        shortcutScroll.setVisibility(View.VISIBLE);
+    }
+
+    private void startNavigationShortcut(NavigationShortcut shortcut) {
+        if (shortcut == null || shortcut.placeId == null || shortcut.placeId.isEmpty()) return;
+        try {
+            Waypoint destination = Waypoint.builder().setPlaceIdString(shortcut.placeId).build();
+            viewModel.requestStartNavigation(destination);
+        } catch (Waypoint.UnsupportedPlaceIdException e) {
+            Log.e(TAG, "Invalid shortcut Place ID", e);
+        }
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     @Override

@@ -37,7 +37,29 @@
         android:maxHeight="300dp"
         app:layout_constraintEnd_toEndOf="@+id/et_search_bar"
         app:layout_constraintStart_toStartOf="@+id/et_search_bar"
-        app:layout_constraintTop_toBottomOf="@+id/et_search_bar" />
+        app:layout_constraintTop_toBottomOf="@+id/hsv_nav_shortcuts" />
+
+    <HorizontalScrollView
+        android:id="@+id/hsv_nav_shortcuts"
+        android:layout_width="0dp"
+        android:layout_height="54dp"
+        android:layout_marginTop="6dp"
+        android:clipToPadding="false"
+        android:elevation="10dp"
+        android:overScrollMode="never"
+        android:scrollbars="none"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="@+id/et_search_bar"
+        app:layout_constraintStart_toStartOf="@+id/et_search_bar"
+        app:layout_constraintTop_toBottomOf="@+id/et_search_bar">
+
+        <LinearLayout
+            android:id="@+id/container_nav_shortcuts"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/cl_nav_info_header"

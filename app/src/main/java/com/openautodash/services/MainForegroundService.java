@@ -40,10 +40,12 @@ import com.openautodash.R;
 import com.openautodash.bluetooth.BLECentralScanner;
 import com.openautodash.enums.VehicleState;
 import com.openautodash.interfaces.BluetoothKeyCallback;
+import com.openautodash.object.Weather;
 import com.openautodash.pairing.DashPairingManager;
 import com.openautodash.repositorys.VehicleRepository;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class MainForegroundService extends Service implements SensorEventListener, BluetoothKeyCallback, BLECentralScanner.MessageHandler {
@@ -296,11 +298,12 @@ public class MainForegroundService extends Service implements SensorEventListene
         // The BLE Device is asking for data. We pull fresh data from the Repository.
         VehicleRepository.VehicleTelemetry telemetry = repository.getLiveTelemetry().getValue();
         Location loc = repository.getLocation().getValue();
+        Weather weather = repository.getWeather().getValue();
 
         Map<String, String> data = new HashMap<>();
 
         if (telemetry != null) {
-            data.put("speed", String.valueOf(telemetry.speed));
+            data.put("vehicle_speed", String.valueOf(telemetry.speed));
             data.put("rpm", String.valueOf(telemetry.rpm));
             data.put("accel_x", String.valueOf(round(telemetry.accelX, 3)));
             data.put("accel_y", String.valueOf(round(telemetry.accelY, 3)));
@@ -308,12 +311,19 @@ public class MainForegroundService extends Service implements SensorEventListene
         }
 
         if (loc != null) {
-            data.put("lat", String.valueOf(loc.getLatitude()));
-            data.put("lon", String.valueOf(loc.getLongitude()));
-            data.put("alt", String.valueOf(loc.getAltitude()));
-            data.put("speed_gps", String.valueOf(loc.getSpeed()));
-            data.put("bearing", String.valueOf(loc.getBearing()));
+            double gpsSpeedMps = loc.getSpeed();
+            data.put("lat", format(loc.getLatitude(), 6));
+            data.put("lon", format(loc.getLongitude(), 6));
+            data.put("alt", format(loc.getAltitude(), 1));
+            data.put("speed_mps", format(gpsSpeedMps, 2));
+            data.put("speed_kmh", format(gpsSpeedMps * 3.6d, 1));
+            data.put("bearing", format(loc.getBearing(), 1));
+            data.put("accuracy", format(loc.getAccuracy(), 1));
         }
+        if (weather != null) {
+            data.put("outside_temp_c", String.valueOf(weather.getTemp()));
+        }
+        data.put("updated_at", String.valueOf(System.currentTimeMillis()));
 
         if (bleScanner != null) {
             bleScanner.sendTelemetryData(data);
@@ -504,5 +514,9 @@ public class MainForegroundService extends Service implements SensorEventListene
         value = value * factor;
         long tmp = Math.round(value);
         return (double) tmp / factor;
+    }
+
+    private static String format(double value, int decimals) {
+        return String.format(Locale.US, "%." + decimals + "f", value);
     }
 }

@@ -1,14 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.menu.MenuNavigation">
+    android:orientation="vertical"
+    android:padding="24dp">
 
-    <!-- TODO: Update blank fragment layout -->
     <TextView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="@string/hello_blank_fragment" />
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Navigation Shortcuts"
+        android:textColor="@color/colorTextTitle"
+        android:textSize="24sp"
+        android:textStyle="bold" />
 
-</FrameLayout>
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="These appear as icon-only buttons below Where to? on the map."
+        android:textColor="@color/colorTextBody"
+        android:textSize="14sp" />
+
+    <Button
+        android:id="@+id/b_add_nav_shortcut"
+        android:layout_width="220dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="18dp"
+        android:background="@drawable/background_button_positive"
+        android:text="Add Shortcut"
+        android:textColor="@color/colorTextBody" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="18dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:id="@+id/container_nav_shortcut_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+</LinearLayout>

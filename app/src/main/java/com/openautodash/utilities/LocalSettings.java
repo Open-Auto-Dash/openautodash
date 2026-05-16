@@ -5,10 +5,14 @@ import android.content.SharedPreferences;
 import android.util.Log;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.openautodash.R;
 import com.openautodash.enums.Units;
+import com.openautodash.object.NavigationShortcut;
 import com.openautodash.object.PhoneKey;
 
+import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -134,5 +138,21 @@ public class LocalSettings {
         String latS = preferences.getString("home_lat", "0");
         String lngS = preferences.getString("home_lng", "0");
         return new double[]{Double.parseDouble(latS), Double.parseDouble(lngS)};
+    }
+
+    public List<NavigationShortcut> getNavigationShortcuts() {
+        String json = preferences.getString("navigation_shortcuts", "[]");
+        try {
+            Type type = new TypeToken<ArrayList<NavigationShortcut>>() {}.getType();
+            List<NavigationShortcut> shortcuts = new Gson().fromJson(json, type);
+            return shortcuts == null ? new ArrayList<>() : shortcuts;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to read navigation shortcuts", e);
+            return new ArrayList<>();
+        }
+    }
+
+    public void setNavigationShortcuts(List<NavigationShortcut> shortcuts) {
+        editor.putString("navigation_shortcuts", new Gson().toJson(shortcuts)).commit();
     }
 }
