@@ -43,6 +43,7 @@ import com.openautodash.interfaces.BluetoothKeyCallback;
 import com.openautodash.object.Weather;
 import com.openautodash.pairing.DashPairingManager;
 import com.openautodash.repositorys.VehicleRepository;
+import com.openautodash.utilities.UsbSerialManager;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -64,6 +65,7 @@ public class MainForegroundService extends Service implements SensorEventListene
     private SensorManager sensorManager;
     private LocationManager locationManager;
     private DashPairingManager pairingManager;
+    private UsbSerialManager usbSerialManager;
 
     // Location
     private LocationListener locationListener;
@@ -96,6 +98,24 @@ public class MainForegroundService extends Service implements SensorEventListene
         // Start BLE scanning/connection (tablet is central)
         bleScanner = new BLECentralScanner(this, this);
         bleScanner.start();
+
+        usbSerialManager = new UsbSerialManager(this, new UsbSerialManager.UsbPermissionListener() {
+            @Override
+            public void onPermissionGranted() {
+                Log.d(TAG, "ESP32 USB serial connected");
+            }
+
+            @Override
+            public void onPermissionDenied() {
+                Log.w(TAG, "ESP32 USB serial permission denied");
+            }
+
+            @Override
+            public void onCommunicationError(String errorMessage) {
+                Log.w(TAG, "ESP32 USB serial error: " + errorMessage);
+            }
+        });
+        usbSerialManager.connectFirstAvailable();
     }
 
     private void initializeHardware() {
@@ -267,14 +287,16 @@ public class MainForegroundService extends Service implements SensorEventListene
 
         switch (command.toUpperCase()) {
             case "LOCK":
-                // Handle lock logic (e.g., trigger relays)
+                forwardVehicleCommandToUsb(command);
                 break;
             case "UNLOCK":
-                // Handle unlock logic
+                forwardVehicleCommandToUsb(command);
                 wakeUpDevice(); // Usually we want to wake screen on unlock
                 break;
-            case "START":
-                // Handle remote start
+            case "REMOTE_START":
+            case "POWER_OFF":
+            case "POWER_TOGGLE":
+                forwardVehicleCommandToUsb(command);
                 break;
             case "PAIR_HELLO":
                 if (params.length > 0 && pairingManager != null) {
@@ -291,6 +313,14 @@ public class MainForegroundService extends Service implements SensorEventListene
                 }
                 break;
         }
+    }
+
+    private void forwardVehicleCommandToUsb(String command) {
+        if (usbSerialManager == null) return;
+        String commandId = "usb_" + System.currentTimeMillis();
+        String message = String.format(Locale.US, "CMD:%s,%s", commandId, command.toUpperCase(Locale.US));
+        boolean sent = usbSerialManager.writeLine(message);
+        Log.d(TAG, sent ? "Forwarded command to ESP32 USB: " + command : "ESP32 USB command send failed: " + command);
     }
 
     @Override
@@ -482,6 +512,10 @@ public class MainForegroundService extends Service implements SensorEventListene
         if (screenWakeLock != null && screenWakeLock.isHeld()) screenWakeLock.release();
 
         if (bleScanner != null) bleScanner.stop();
+        if (usbSerialManager != null) {
+            usbSerialManager.destroy();
+            usbSerialManager = null;
+        }
 
         if (locationManager != null) {
             locationManager.removeUpdates(locationListener);
